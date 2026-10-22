@@ -1,8 +1,14 @@
-﻿# 1. Project identity
+# 1. Project identity
 - **Project name:** Patagonia Content Studio.
 - **Type:** two-day applied R&D / educational prototype.
 - **Goal:** deliver an English-only Patagonia content studio in Python/Streamlit that drafts Instagram, LinkedIn, and email newsletter content from curated Markdown knowledge bases, then routes output through human review, revision, and export without inventing facts.
 - **Dates:** October 22–23, 2026.
+- **Initial product:** Patagonia Men's Nano Puff® Jacket, style 84212.
+- **Canonical source:** https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html
+- **Market/source scope:** US website, English content.
+- **Channels:** Instagram, LinkedIn, email newsletter.
+- **Initial use case:** a marketing team enters a campaign brief and receives three channel-specific drafts grounded in verified product and industry sources, with human review, revision and approval.
+- **Excluded scope:** live prices, discounts, availability, unsupported performance claims, and facts from other styles/seasons.
 - **Characteristics:**
   - Defined goal.
   - Limited resources.
@@ -16,7 +22,10 @@
 - **Quality:** outputs remain grounded in verified Patagonia source notes, channel tone is distinct per format, and reviewers can trace every significant claim back to the knowledge base.
 - **Quality:** the UI makes each state obvious so the workflow is usable for non-builders and easy to demo.
 - **Time:** finish a working end-to-end demo by Day 2 while keeping at most two active cards across the team and using pair/review work to avoid overload.
-- **Cost:** keep the model configurable, bound generation and revision calls, and record token/usage data when the API returns it; monetary budget remains **TBD**.
+- **Cost:** keep the model configurable, bound generation and revision calls, and record token/usage data when the API returns it; shared team API budget is **USD 5** for the two-day project.
+- **Cost:** model preset is `gpt-5.4-mini`, configurable through `OPENAI_MODEL`.
+- **Cost:** shared team API budget is USD 5 for October 22–23, 2026; this is an agreed spending budget, not an already implemented or guaranteed billing cap.
+- **Cost:** corpus measurements remain marked as not measured.
 - **Milestone - Day 1:** both Markdown KBs are ingested and one real OpenAI response is produced using their context.
 - **Milestone - Day 2:** deliver the end-to-end demo, review flow, exported approved content, and presentation evidence.
 
