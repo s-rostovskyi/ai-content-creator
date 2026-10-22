@@ -62,6 +62,65 @@ The available offline evidence supports the following conclusion:
 
 This is an integration and review-aid result, not a claim about live model performance. The smoke test used an offline fixture (`live_api_call: false`), so a stronger follow-up evaluation should preserve raw generic and contextual outputs from the same configured model, prompt family, and channel for Instagram, LinkedIn, and email.
 
+## Template and prompt-layer evidence
+
+The channel templates create meaningful differentiation before a model response is produced:
+
+| Channel | Required distinctive shape | Uniqueness contribution |
+|---|---|---|
+| Instagram | 60–120 words; begins with a concrete image, object, action, or use case; one CTA; 0–2 emojis; at most 3 hashtags. | Favors a specific, visual entry point rather than a broad brand slogan. |
+| LinkedIn | 120–200 words; short paragraphs; a useful product or design angle; one CTA; no unsupported business claims. | Requires an explanatory product/design perspective rather than repurposing a social caption. |
+| Email | Subject up to 50 characters; preheader up to 90 characters; body 150–250 words; one CTA. | Requires a multi-part editorial package with a distinct subject, preheader, and body. |
+
+All three templates also require `CHANNEL COPY` and `REVIEWER NOTES`. The notes must identify supporting source paths and URLs, facts used, editorial interpretations, limitations, and unresolved uncertainties. This separation helps prevent reviewer reasoning from being disguised as publishable copy.
+
+The shared grounding rules strengthen differentiation and brand safety: primary context is authoritative for Patagonia facts, secondary context informs positioning only, competitor claims must not be transferred to Patagonia, source prose must not be copied, and “water-resistant” must remain distinct from “waterproof.” The templates also prohibit invented prices, availability, specifications, testimonials, personal experiences, and unsupported outcomes.
+
+## Prompt-construction evidence
+
+`src/prompt_templates.py` provides a deterministic boundary between trusted instructions and untrusted values:
+
+- The template instructions retain channel-specific output rules and grounding rules.
+- Campaign brief, primary context, secondary context, and reviewer feedback are rendered under `UNTRUSTED USER INPUT` delimiters.
+- Braces inside user-provided values remain literal instead of being recursively interpreted as prompt placeholders.
+- Each template must contain exactly the expected placeholders and the ordered sections `Inputs`, `Grounding and safety rules`, and `Required output`.
+- Context values are not placed in trusted instructions.
+
+These controls support uniqueness in two ways: they preserve the channel’s distinct creative brief, and they keep verified context available to the model without allowing context text to rewrite the template’s rules.
+
+## Focused test evidence
+
+`tests/test_prompt_templates.py` verifies the uniqueness-related prompt behavior across all three channels. The tests confirm that:
+
+- Instagram, LinkedIn, and email all build successfully.
+- Channel-specific instructions survive prompt construction.
+- Primary and secondary context are included in the user-input section.
+- Reviewer feedback is preserved literally and safely.
+- Unknown channels, blank briefs, missing templates, invalid placeholders, and malformed section order are rejected.
+- Context and campaign brief values do not leak into trusted instructions.
+- The LinkedIn rule against unsupported business claims survives construction.
+
+This is structural evidence of differentiated prompting and grounding discipline. It does not, by itself, prove that a live model will always produce unique copy; output review remains necessary.
+
+## Pipeline, CLI, and output assessment
+
+At the time of this evaluation, the requested pipeline artifacts were not present in the repository:
+
+- `src/content_pipeline.py`: not present.
+- `src/main.py`: not present.
+- Focused pipeline tests: none found.
+- `outputs/`: contains only `.gitkeep`; no approved content export is available for comparison.
+
+Because these artifacts are absent, this evaluation makes no claim about end-to-end generation, feedback/revision behavior, human approval enforcement, CLI execution, or uniqueness of exported content. The template and prompt layers are ready to support those checks, but the pipeline evidence must be added before those parts can be scored.
+
+## Updated conclusion
+
+The available evidence supports a qualified conclusion:
+
+**The project has a strong uniqueness foundation at the template, prompt-construction, and integration-contract layers.** It requires channel-specific forms, verified contextual anchors, source-aware reviewer notes, and explicit anti-slop checks. The offline comparison shows that the contextual fixture is more specific than the generic fixture.
+
+**End-to-end uniqueness is not yet demonstrated.** The pipeline, CLI, focused pipeline tests, and approved output artifacts are missing, and the existing comparison is offline rather than a live same-model generic-versus-contextual evaluation. These are the next evidence gaps for a complete M6 uniqueness evaluation.
+
 ## Verification record
 
 - Evidence artifact: [`day1-smoke-test.json`](../evidence/day1-smoke-test.json)
