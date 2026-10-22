@@ -1,2 +1,4 @@
 ﻿markdown-it-py>=3.0.0
+openai>=2.54.0
+python-dotenv>=1.2.2
 pytest>=9.0.0
