@@ -1,0 +1,22 @@
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+**/__pycache__/
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.streamlit/secrets.toml
+outputs/*
+!outputs/.gitkeep
+
+# Local lab runtime and original media
+data/_pieces/
+*.m4a
+*.mp3
