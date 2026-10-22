@@ -1,4 +1,4 @@
-﻿# Purpose
+# Purpose
 - Root coding-agent instructions for this project; read this file before each task and align work to `project_structure.md` and Must IDs M1-M8.
 - This repository is a Python/Streamlit educational prototype with Markdown knowledge bases, OpenAI API integration, and human review for approved content.
 
@@ -10,9 +10,9 @@
 - Markdown parsing.
 - `python-dotenv`.
 
-# Planned commands
-- `python -m src.main` — planned, not implemented yet.
-- `streamlit run app.py` — planned, not implemented yet.
+# Run commands
+- `python -m src.main --channel <channel> --brief "..." [--dry-run]` — implemented and verified for dry-run; live mode still uses manual review.
+- `python -m streamlit run app.py` — implemented; Instagram generation, revision, manual editing, approval/export and light/dark switching manually verified. LinkedIn/email live checks remain pending.
 
 # Environment names
 - `OPENAI_API_KEY`.
