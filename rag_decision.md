@@ -19,16 +19,21 @@
 - **Implementation complexity:** the simplest architecture that keeps Patagonia facts grounded should win for this project.
 
 ## Measurements from the current implementation
+These values come from one Day 1 Instagram smoke test and are not representative benchmarks.
+
 | Metric | Value | Definition |
 |---|---|---|
-| Primary documents | 4 | Curated Markdown files loaded from `knowledge_base/primary/`; excludes `README.md` and `.gitkeep`. |
-| Secondary documents | 2 | Curated Markdown files loaded from `knowledge_base/secondary/`; excludes `README.md` and `.gitkeep`. |
+| Primary documents | 4 | Curated Markdown files loaded from knowledge_base/primary/; excludes README.md and .gitkeep. |
+| Secondary documents | 2 | Curated Markdown files loaded from knowledge_base/secondary/; excludes README.md and .gitkeep. |
 | Total documents | 6 | Primary plus secondary curated documents loaded by the existing loader. |
 | UTF-8 corpus bytes | 14,351 | Sum of on-disk byte sizes for the six curated Markdown source files only. |
 | Serialized context characters | 14,474 | `len(primary_context) + len(secondary_context)` from `assemble_context_bundle()`, including group labels, source wrappers, document markdown, metadata, source links, interpretations, limitations, and blank-line separators. |
-| Prompt token usage | not measured | Not captured yet because no OpenAI request was run in this task. |
-| API latency | not measured | Not captured yet because no OpenAI request was run in this task. |
-| API usage/cost | not measured | Not captured yet because no OpenAI request was run in this task. |
+| Returned model | gpt-5.4-mini-2026-03-17 | Model reported by the single live Instagram smoke test. |
+| Input tokens | 3,683 | Input tokens reported by the single live Instagram smoke test response usage object. |
+| Output tokens | 547 | Output tokens reported by the single live Instagram smoke test response usage object. |
+| Total tokens | 4,230 | Combined input plus output tokens reported by the single live Instagram smoke test response usage object. |
+| API latency | 6.347893500002101 seconds | End-to-end elapsed time measured for the single live Instagram smoke test request. |
+| API usage/cost | not calculated | Cost remains uncalculated and was not treated as an enforced budget cap. |
 
 ## Revisit conditions
 - Revisit the architecture if the corpus grows enough that fixed inclusion becomes unwieldy or too large.
@@ -41,3 +46,8 @@
 - The source manifest is separate from the serialized context strings.
 - No generic-versus-contextual comparison has been run yet.
 - No deployment, API call, or billing event has been performed by this decision record alone.
+
+## Day 1 Instagram smoke test note
+- The smoke test used the same fixed corpus and a single live Instagram request.
+- The evidence records gpt-5.4-mini-2026-03-17, 3,683 input tokens, 547 output tokens, 4,230 total tokens, and 6.347893500002101 seconds of latency.
+- These measurements describe one smoke test only and do not prove production fit, token-window fit, or benchmark performance.

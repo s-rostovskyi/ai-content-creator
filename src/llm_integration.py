@@ -157,14 +157,6 @@ def generate_response(
 
 
 
-def _validate_timeout_seconds(timeout_seconds: float) -> None:
-    if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)):
-        raise OpenAIConfigurationError("timeout_seconds must be a finite positive number.")
-    if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
-        raise OpenAIConfigurationError("timeout_seconds must be a finite positive number.")
-
-
-
 def _validate_generation_arguments(
     instructions: str,
     user_input: str,
@@ -179,6 +171,14 @@ def _validate_generation_arguments(
         raise OpenAIConfigurationError("max_output_tokens must be an integer between 1 and 4096.")
     if not MIN_MAX_OUTPUT_TOKENS <= max_output_tokens <= MAX_MAX_OUTPUT_TOKENS:
         raise OpenAIConfigurationError("max_output_tokens must be an integer between 1 and 4096.")
+    if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)):
+        raise OpenAIConfigurationError("timeout_seconds must be a finite positive number.")
+    if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        raise OpenAIConfigurationError("timeout_seconds must be a finite positive number.")
+
+
+
+def _validate_timeout_seconds(timeout_seconds: float) -> None:
     if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)):
         raise OpenAIConfigurationError("timeout_seconds must be a finite positive number.")
     if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
@@ -246,4 +246,3 @@ def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
-
