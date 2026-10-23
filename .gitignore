@@ -15,6 +15,7 @@ __pycache__/
 .streamlit/secrets.toml
 outputs/*
 !outputs/.gitkeep
+.rag/
 
 # Local lab runtime and original media
 data/_pieces/

@@ -1,0 +1,164 @@
+{
+  "mode": "live",
+  "status": "complete",
+  "run_directory": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\docs\\evaluation\\runs\\20261023T021455-aab889c1",
+  "started_at": "2026-10-23T02:14:55.670020+02:00",
+  "planned_requests": 6,
+  "completed_requests": 6,
+  "settings": {
+    "model": "gpt-5.4-mini",
+    "max_output_tokens": 2000,
+    "timeout_seconds": 60.0
+  },
+  "contextual_corpus": {
+    "source_manifest": [
+      {
+        "repository_relative_path": "knowledge_base/primary/brand_voice.md",
+        "knowledge_base": "primary",
+        "document_title": "Patagonia Editorial Observations",
+        "source_urls": [
+          "https://www.patagonia.com/core-values/",
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+        ],
+        "source_url_text": "https://www.patagonia.com/core-values/ and https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Core Values page says values were updated in 2022; product page date not stated",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement, published brand content",
+        "section_count": 3
+      },
+      {
+        "repository_relative_path": "knowledge_base/primary/past_content/examples.md",
+        "knowledge_base": "primary",
+        "document_title": "Published Patagonia Examples: Style References",
+        "source_urls": [
+          "https://www.patagonia.com/stories/culture/worn-wear/on-the-road-with-worn-wear-2015-spring-tour-recap/story-17733.html",
+          "https://www.patagonia.com/stories/culture/worn-wear/repair-is-a-radical-act/story-17637.html",
+          "https://www.patagonia.com/stories/culture/worn-wear/better-than-new-fashion-week-new-york-times-worn-wear-patagonia-common-threads-partnership/story-18043.html"
+        ],
+        "source_url_text": "https://www.patagonia.com/stories/culture/worn-wear/on-the-road-with-worn-wear-2015-spring-tour-recap/story-17733.html; https://www.patagonia.com/stories/culture/worn-wear/repair-is-a-radical-act/story-17637.html; https://www.patagonia.com/stories/culture/worn-wear/better-than-new-fashion-week-new-york-times-worn-wear-patagonia-common-threads-partnership/story-18043.html",
+        "publisher": "Patagonia, US website",
+        "published_updated": "“On the Road with Worn Wear – 2015 Spring Tour Recap,” Jun 15, 2015; “Repair is a Radical Act,” Nov 25, 2015; “Announcing Worn Wear,” Sep 10, 2013",
+        "accessed": "2026-10-22",
+        "evidence_type": "published brand content",
+        "section_count": 3
+      },
+      {
+        "repository_relative_path": "knowledge_base/primary/product_facts.md",
+        "knowledge_base": "primary",
+        "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+        "source_urls": [
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+        ],
+        "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Not stated on the accessed product page",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement, product fact",
+        "section_count": 3
+      },
+      {
+        "repository_relative_path": "knowledge_base/primary/repair_and_reuse.md",
+        "knowledge_base": "primary",
+        "document_title": "Care, Repair and Reuse for Patagonia Gear",
+        "source_urls": [
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+          "https://www.patagonia.com/returns.html",
+          "https://www.patagonia.com/repairs/",
+          "https://www.patagonia.com/start-repair/",
+          "https://www.patagonia.com/worn-wear/"
+        ],
+        "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement",
+        "section_count": 3
+      },
+      {
+        "repository_relative_path": "knowledge_base/secondary/competitor_context.md",
+        "knowledge_base": "secondary",
+        "document_title": "The North Face Men’s THERMOBALL™ Jacket Context",
+        "source_urls": [
+          "https://www.thenorthface.com/en-us/p/mens/mens-jackets-and-vests/mens-insulated-and-down-300771/mens-thermoball-jacket-NF0A8D1P"
+        ],
+        "source_url_text": "https://www.thenorthface.com/en-us/p/mens/mens-jackets-and-vests/mens-insulated-and-down-300771/mens-thermoball-jacket-NF0A8D1P",
+        "publisher": "The North Face",
+        "published_updated": "Not stated",
+        "accessed": "2026-10-22",
+        "evidence_type": "competitor statement",
+        "section_count": 3
+      },
+      {
+        "repository_relative_path": "knowledge_base/secondary/market_trends.md",
+        "knowledge_base": "secondary",
+        "document_title": "U.S. Outdoor Participation and Textile Reuse Context",
+        "source_urls": [
+          "https://outdoorindustry.org/press-release/outdoor-participation-hits-record-levels-for-ninth-consecutive-year/",
+          "https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P101D1F1.txt"
+        ],
+        "source_url_text": "https://outdoorindustry.org/press-release/outdoor-participation-hits-record-levels-for-ninth-consecutive-year/; https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P101D1F1.txt",
+        "publisher": "Outdoor Foundation and Outdoor Industry Association; U.S. Environmental Protection Agency",
+        "published_updated": "June 18, 2024; August 2024",
+        "accessed": "2026-10-22",
+        "evidence_type": "industry research and public-institution report",
+        "section_count": 3
+      }
+    ],
+    "corpus_measurements": {
+      "primary_document_count": 4,
+      "secondary_document_count": 2,
+      "total_document_count": 6,
+      "utf8_corpus_bytes": 14351,
+      "primary_context_characters": 9447,
+      "secondary_context_characters": 5027,
+      "serialized_context_characters": 14474,
+      "max_serialized_characters": 40000
+    }
+  },
+  "records": [
+    {
+      "request_index": 1,
+      "channel": "instagram",
+      "condition": "generic",
+      "status": "completed",
+      "file": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\docs\\evaluation\\runs\\20261023T021455-aab889c1\\01-instagram-generic.json"
+    },
+    {
+      "request_index": 2,
+      "channel": "instagram",
+      "condition": "contextual",
+      "status": "completed",
+      "file": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\docs\\evaluation\\runs\\20261023T021455-aab889c1\\02-instagram-contextual.json"
+    },
+    {
+      "request_index": 3,
+      "channel": "linkedin",
+      "condition": "generic",
+      "status": "completed",
+      "file": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\docs\\evaluation\\runs\\20261023T021455-aab889c1\\03-linkedin-generic.json"
+    },
+    {
+      "request_index": 4,
+      "channel": "linkedin",
+      "condition": "contextual",
+      "status": "completed",
+      "file": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\docs\\evaluation\\runs\\20261023T021455-aab889c1\\04-linkedin-contextual.json"
+    },
+    {
+      "request_index": 5,
+      "channel": "email",
+      "condition": "generic",
+      "status": "completed",
+      "file": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\docs\\evaluation\\runs\\20261023T021455-aab889c1\\05-email-generic.json"
+    },
+    {
+      "request_index": 6,
+      "channel": "email",
+      "condition": "contextual",
+      "status": "completed",
+      "file": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\docs\\evaluation\\runs\\20261023T021455-aab889c1\\06-email-contextual.json"
+    }
+  ],
+  "error": null
+}

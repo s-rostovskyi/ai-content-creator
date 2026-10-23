@@ -1,0 +1,126 @@
+{
+  "channel": "email",
+  "campaign_brief": "Create an English email newsletter introducing Patagonia’s Men’s Nano Puff Jacket, style 84212, to a US audience planning everyday outings and outdoor trips.\n\nUse an understated, practical editorial tone. Focus on verified packability and useful product features. Include a subject line of no more than 50 characters, a preheader of no more than 90 characters, and a body of 150–250 words with one clear CTA inviting readers to explore the product details.\n\nUse only supported product claims. Keep recycled-content and finish qualifications specific to the relevant components. Distinguish water-resistant from waterproof. Avoid prices, discounts, urgency, invented environmental benefits, business outcomes, and competitor comparisons. Use secondary context only if directly relevant.\n\nIn reviewer notes, list only facts actually used and their supporting source paths and URLs. Clearly separate editorial interpretations and limitations. Treat the output as a draft awaiting human approval.",
+  "revision_number": 2,
+  "origin": "manual_edit",
+  "raw_response": "### CHANNEL COPY\n\nSubject: Packable warmth for everyday plans\n\nPreheader: Lightweight, water-resistant, and ready to stash when the day changes.\n\nBody:  \nMeet the Men’s Nano Puff Jacket, style 84212—a regular-fit layer built for days that move between town and trail. It’s lightweight, highly compressible, and designed to pack down when you don’t need it, then pull back out when you do.\n\nThe shell is 100% recycled polyester ripstop with a DWR finish made without intentionally added PFAS; Patagonia says that finish is meant to shed light moisture. The insulation is 60-g PrimaLoft® Gold Insulation Eco made from 100% postconsumer recycled polyester, and the jacket includes brick quilting to help keep the insulation in place. Practical details include a center-front zipper with an interior storm flap and chin zipper garage, two zippered handwarmer pockets, and an internal zippered chest pocket that doubles as a stuffsack.\n\nYou’ll also find a drawcord-adjustable drop-tail hem and a regular fit for easy layering. For care, Patagonia lists machine wash warm, do not bleach, tumble dry low, and do not iron.\n\nExplore the details of the Men’s Nano Puff Jacket.\n\n### REVIEWER NOTES\n\nSupporting source paths and URLs used:\n- `knowledge_base/primary/product_facts.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n- `knowledge_base/primary/repair_and_reuse.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n\nFacts used:\n- Product is Men’s Nano Puff Jacket, style 84212, regular fit.\n- Jacket is lightweight and highly compressible.\n- Jacket is warm, windproof, and water-resistant.\n- Shell is 100% recycled polyester ripstop with DWR finish made without intentionally added PFAS; finish sheds light moisture.\n- Insulation is 60-g PrimaLoft® Gold Insulation Eco made from 100% postconsumer recycled polyester with P.U.R.E.™ technology.\n- Features: brick quilting, center-front zipper with interior storm flap and chin zipper garage, two zippered handwarmer pockets, internal zippered chest pocket that doubles as a stuffsack, drawcord-adjustable drop-tail hem.\n- Care instructions: machine wash warm, do not bleach, tumble dry low, do not iron.\n\nEditorial interpretations:\n- “Built for days that move between town and trail” is a positioning interpretation based on packability and practical features; not a direct source claim.\n- “Ready to stash when you don’t need it, then pull back out when you do” is a plainspoken rendering of highly compressible/stuffsack functionality.\n- “Practical details” and the overall understated tone are editorial choices.\n\nLimitations / unresolved uncertainties:\n- Water-resistant is not waterproof; copy preserves that distinction.\n- Recycled-content wording is kept component-specific; no all-garment recycled-content claim is made.\n- No prices, discounts, availability, environmental outcomes, or performance comparisons were used.\n- The product page date is not stated.",
+  "channel_copy": "Subject: Packable warmth for everyday plans\n\nPreheader: Lightweight, water-resistant, and ready to stash when the day changes.\n\nBody:  \nMeet the Men’s Nano Puff Jacket, style 84212—a regular-fit layer built for days that move between town and trail. It’s lightweight, highly compressible, and designed to pack down when you don’t need it, then pull back out when you do.\n\nThe shell is 100% recycled polyester ripstop with a DWR finish made without intentionally added PFAS; Patagonia says that finish is meant to shed light moisture. The insulation is 60-g PrimaLoft® Gold Insulation Eco made from 100% postconsumer recycled polyester, and the jacket includes brick quilting to help keep the insulation in place. Practical details include a center-front zipper with an interior storm flap and chin zipper garage, two zippered handwarmer pockets, and an internal zippered chest pocket that doubles as a stuffsack.\n\nYou’ll also find a drawcord-adjustable drop-tail hem and a regular fit for easy layering. For care, Patagonia lists machine wash warm, do not bleach, tumble dry low, and do not iron.\n\nExplore the details of the Men’s Nano Puff Jacket.",
+  "reviewer_notes": "Supporting source paths and URLs used:\n- `knowledge_base/primary/product_facts.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n- `knowledge_base/primary/repair_and_reuse.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n\nFacts used:\n- Product is Men’s Nano Puff Jacket, style 84212, regular fit.\n- Jacket is lightweight and highly compressible.\n- Jacket is warm and water-resistant.\n- Shell is 100% recycled polyester ripstop with DWR finish made without intentionally added PFAS; finish sheds light moisture.\n- Insulation is 60-g PrimaLoft® Gold Insulation Eco made from 100% postconsumer recycled polyester.\n- Features: brick quilting, center-front zipper with interior storm flap and chin zipper garage, two zippered handwarmer pockets, internal zippered chest pocket that doubles as a stuffsack, drawcord-adjustable drop-tail hem.\n- Care instructions: machine wash warm, do not bleach, tumble dry low, do not iron.\n\nEditorial interpretations:\n- “Built for days that move between town and trail” is a positioning interpretation based on packability and practical features; not a direct source claim.\n- “Ready to stash when you don’t need it, then pull back out when you do” is a plainspoken rendering of highly compressible/stuffsack functionality.\n- “Practical details” and the overall understated tone are editorial choices.\n\nLimitations / unresolved uncertainties:\n- Water-resistant is not waterproof; copy preserves that distinction.\n- Recycled-content wording is kept component-specific; no all-garment recycled-content claim is made.\n- No prices, discounts, availability, environmental outcomes, or performance comparisons were used.\n- The product page date is not stated.",
+  "source_manifest": [
+    {
+      "repository_relative_path": "knowledge_base/primary/brand_voice.md",
+      "knowledge_base": "primary",
+      "document_title": "Patagonia Editorial Observations",
+      "source_urls": [
+        "https://www.patagonia.com/core-values/",
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+      ],
+      "source_url_text": "https://www.patagonia.com/core-values/ and https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Core Values page says values were updated in 2022; product page date not stated",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement, published brand content",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/primary/past_content/examples.md",
+      "knowledge_base": "primary",
+      "document_title": "Published Patagonia Examples: Style References",
+      "source_urls": [
+        "https://www.patagonia.com/stories/culture/worn-wear/on-the-road-with-worn-wear-2015-spring-tour-recap/story-17733.html",
+        "https://www.patagonia.com/stories/culture/worn-wear/repair-is-a-radical-act/story-17637.html",
+        "https://www.patagonia.com/stories/culture/worn-wear/better-than-new-fashion-week-new-york-times-worn-wear-patagonia-common-threads-partnership/story-18043.html"
+      ],
+      "source_url_text": "https://www.patagonia.com/stories/culture/worn-wear/on-the-road-with-worn-wear-2015-spring-tour-recap/story-17733.html; https://www.patagonia.com/stories/culture/worn-wear/repair-is-a-radical-act/story-17637.html; https://www.patagonia.com/stories/culture/worn-wear/better-than-new-fashion-week-new-york-times-worn-wear-patagonia-common-threads-partnership/story-18043.html",
+      "publisher": "Patagonia, US website",
+      "published_updated": "“On the Road with Worn Wear – 2015 Spring Tour Recap,” Jun 15, 2015; “Repair is a Radical Act,” Nov 25, 2015; “Announcing Worn Wear,” Sep 10, 2013",
+      "accessed": "2026-10-22",
+      "evidence_type": "published brand content",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/primary/product_facts.md",
+      "knowledge_base": "primary",
+      "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+      "source_urls": [
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+      ],
+      "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Not stated on the accessed product page",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement, product fact",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/primary/repair_and_reuse.md",
+      "knowledge_base": "primary",
+      "document_title": "Care, Repair and Reuse for Patagonia Gear",
+      "source_urls": [
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "https://www.patagonia.com/returns.html",
+        "https://www.patagonia.com/repairs/",
+        "https://www.patagonia.com/start-repair/",
+        "https://www.patagonia.com/worn-wear/"
+      ],
+      "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/secondary/competitor_context.md",
+      "knowledge_base": "secondary",
+      "document_title": "The North Face Men’s THERMOBALL™ Jacket Context",
+      "source_urls": [
+        "https://www.thenorthface.com/en-us/p/mens/mens-jackets-and-vests/mens-insulated-and-down-300771/mens-thermoball-jacket-NF0A8D1P"
+      ],
+      "source_url_text": "https://www.thenorthface.com/en-us/p/mens/mens-jackets-and-vests/mens-insulated-and-down-300771/mens-thermoball-jacket-NF0A8D1P",
+      "publisher": "The North Face",
+      "published_updated": "Not stated",
+      "accessed": "2026-10-22",
+      "evidence_type": "competitor statement",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/secondary/market_trends.md",
+      "knowledge_base": "secondary",
+      "document_title": "U.S. Outdoor Participation and Textile Reuse Context",
+      "source_urls": [
+        "https://outdoorindustry.org/press-release/outdoor-participation-hits-record-levels-for-ninth-consecutive-year/",
+        "https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P101D1F1.txt"
+      ],
+      "source_url_text": "https://outdoorindustry.org/press-release/outdoor-participation-hits-record-levels-for-ninth-consecutive-year/; https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P101D1F1.txt",
+      "publisher": "Outdoor Foundation and Outdoor Industry Association; U.S. Environmental Protection Agency",
+      "published_updated": "June 18, 2024; August 2024",
+      "accessed": "2026-10-22",
+      "evidence_type": "industry research and public-institution report",
+      "section_count": 3
+    }
+  ],
+  "response_metadata": {
+    "response_id": "resp_02830046d75b13c5006ada8b9b181887d280b0a60a1ad2de6c",
+    "model": "gpt-5.4-mini-2026-03-17",
+    "elapsed_seconds": 4.426683699944988,
+    "usage": {
+      "input_tokens": 3786,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0
+      },
+      "output_tokens": 651,
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "total_tokens": 4437
+    }
+  },
+  "approval": {
+    "approved_revision": 2,
+    "approved_copy_fingerprint": "c16d579b9b6e7e4bfbb8f6c91499788f50cc6d9281485c597b34068ab6e6c890",
+    "approved_by": "Human reviewer",
+    "approved_at": "2026-10-22T22:24:13.422836+00:00"
+  }
+}

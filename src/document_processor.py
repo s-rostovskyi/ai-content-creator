@@ -106,19 +106,50 @@ def load_knowledge_base_documents(repo_root: str | Path | None = None) -> tuple[
     return tuple(documents)
 
 
+
+def parse_knowledge_base_document(
+    markdown_text: str,
+    source_path: str | Path,
+    knowledge_base_name: str,
+    repo_root: str | Path | None = None,
+) -> KnowledgeBaseDocument:
+    root_path = _resolve_repo_root(repo_root)
+    candidate_path = _resolve_repository_relative_path(source_path, root_path)
+    return _parse_markdown_document_from_text(markdown_text, candidate_path, root_path, knowledge_base_name)
+
+
 def _resolve_repo_root(repo_root: str | Path | None) -> Path:
     if repo_root is None:
         return Path(__file__).resolve().parents[1]
     return Path(repo_root).resolve()
 
 
+def _resolve_repository_relative_path(source_path: str | Path, repo_root: Path) -> Path:
+    candidate_path = Path(source_path)
+    if candidate_path.is_absolute():
+        resolved_candidate = candidate_path.resolve()
+    else:
+        resolved_candidate = (repo_root / candidate_path).resolve()
+    if not resolved_candidate.is_relative_to(repo_root):
+        raise MalformedMarkdownDocumentError(
+            f"Document path must stay inside the repository root: {candidate_path}"
+        )
+    return resolved_candidate
+
+
 def _collect_markdown_files(directory_path: Path, repo_root: Path) -> list[Path]:
     files: list[Path] = []
+    resolved_directory = directory_path.resolve()
+    resolved_repo_root = repo_root.resolve()
     for path in directory_path.rglob("*.md"):
+        if not _is_safe_corpus_path(path, resolved_directory, resolved_repo_root):
+            continue
         relative_parts = path.relative_to(repo_root).parts
         if path.name in IGNORED_FILENAMES:
             continue
         if any(part.startswith(".") for part in relative_parts):
+            continue
+        if path.is_symlink():
             continue
         files.append(path)
     return sorted(files, key=lambda candidate: candidate.relative_to(repo_root).as_posix())
@@ -138,6 +169,15 @@ def _parse_markdown_document(
     except OSError as exc:
         raise MarkdownCorpusError(f"Cannot read document: {source_path}") from exc
 
+    return _parse_markdown_document_from_text(markdown, source_path, repo_root, knowledge_base_name)
+
+
+def _parse_markdown_document_from_text(
+    markdown: str,
+    source_path: Path,
+    repo_root: Path,
+    knowledge_base_name: str,
+) -> KnowledgeBaseDocument:
     try:
         tokens = PARSER.parse(markdown)
     except Exception as exc:  # pragma: no cover - defensive around parser internals
@@ -296,6 +336,20 @@ def _validate_accessed_date(value: str, source_path: Path) -> None:
         ) from exc
 
 
+def _is_safe_corpus_path(path: Path, resolved_directory: Path, resolved_repo_root: Path) -> bool:
+    try:
+        resolved_path = path.resolve(strict=True)
+    except OSError:
+        return False
+    if path.is_symlink():
+        return False
+    if not resolved_path.is_relative_to(resolved_directory):
+        return False
+    if not resolved_path.is_relative_to(resolved_repo_root):
+        return False
+    return True
+
+
 def _build_sections(
     section_nodes: list[_HeadingNode],
     lines: list[str],
@@ -340,3 +394,15 @@ def _slugify_heading_path(heading_path: tuple[str, ...]) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", slug)
     slug = slug.strip("-")
     return slug or "section"
+
+
+__all__ = [
+    "KnowledgeBaseDocument",
+    "KnowledgeBaseSection",
+    "KnowledgeBaseMetadata",
+    "MalformedMarkdownDocumentError",
+    "MarkdownCorpusError",
+    "MissingKnowledgeBaseDirectoryError",
+    "load_knowledge_base_documents",
+    "parse_knowledge_base_document",
+]
