@@ -13,6 +13,7 @@ from src.document_processor import (
     MissingKnowledgeBaseDirectoryError,
     load_knowledge_base_documents,
 )
+from src.source_registry import list_sources
 
 
 def _write_markdown(path: Path, content: str) -> None:
@@ -64,6 +65,61 @@ def test_loads_real_corpus_with_expected_counts() -> None:
             assert section.document_metadata == document.metadata
             assert section.markdown.strip()
 
+
+def test_ignores_nested_hidden_sources_in_document_discovery_and_registry_listing(tmp_path: Path) -> None:
+    hidden_corpus = tmp_path / "hidden-corpus"
+    hidden_primary_dir = hidden_corpus / "knowledge_base" / "primary"
+    hidden_secondary_dir = hidden_corpus / "knowledge_base" / "secondary"
+    hidden_primary_dir.mkdir(parents=True)
+    hidden_secondary_dir.mkdir(parents=True)
+    (hidden_secondary_dir / ".hidden").mkdir(parents=True)
+
+    _write_markdown(
+        hidden_secondary_dir / "visible.md",
+        textwrap.dedent(
+            """
+            # Visible Example
+
+            - Source URL: https://example.com/visible
+            - Publisher: Example Publisher
+            - Published/updated: Not stated
+            - Accessed: 2026-10-22
+            - Knowledge base: secondary
+            - Evidence type: industry research
+
+            ## Relevant facts
+
+            - Visible control fact.
+            """
+        ),
+    )
+    _write_markdown(
+        hidden_secondary_dir / ".hidden" / "ignored.md",
+        textwrap.dedent(
+            """
+            # Hidden Example
+
+            - Source URL: https://example.com/ignored
+            - Publisher: Example Publisher
+            - Published/updated: Not stated
+            - Accessed: 2026-10-22
+            - Knowledge base: secondary
+            - Evidence type: industry research
+
+            ## Relevant facts
+
+            - Hidden fact.
+            """
+        ),
+    )
+
+    discovered_documents = load_knowledge_base_documents(hidden_corpus)
+    assert [document.repository_relative_path for document in discovered_documents] == [
+        "knowledge_base/secondary/visible.md",
+    ]
+    assert [record.repository_relative_path for record in list_sources(hidden_corpus)] == [
+        "knowledge_base/secondary/visible.md",
+    ]
 
 def test_preserves_nested_files_metadata_heading_hierarchy_and_non_overlapping_sections(tmp_path: Path) -> None:
     primary_dir = tmp_path / "knowledge_base" / "primary"
