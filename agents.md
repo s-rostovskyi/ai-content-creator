@@ -14,10 +14,14 @@
 - `python -m src.main --channel <channel> --brief "..." [--dry-run]` - implemented and verified for dry-run; live mode supports manual review, explicit approval, and export.
 - `python -m streamlit run app.py` - implemented; the local UI supports channel switching, draft editing, validation, approval, export, and the preserved acceptance evidence covers Instagram, LinkedIn, and email.
 - `python scripts/generic_vs_contextual_eval.py [--live] [--runs-dir ...]` - dry-run is the default; `--live` performs the six-request comparison and writes to `docs/evaluation/runs/`.
+- `python scripts/build_rag_index.py [--live]` - dry-run is the default; preview shows the planned corpus snapshot, chunk counts, reusable embeddings, missing embeddings, and API batch plan before any build runs.
+- `python scripts/retrieve_rag_context.py [--live] [--save-evidence <path>] --channel <channel> --brief "..."` - dry-run is the default; live mode performs retrieval and optional evidence export.
 
 # Environment names
 - `OPENAI_API_KEY`.
 - `OPENAI_MODEL`.
+- `OPENAI_EMBEDDING_MODEL`.
+- `SOURCE_MANAGEMENT_ENABLED`.
 - The application key is owner-funded and local to the environment; it is separate from Codex authentication and must not be committed.
 - Never invent a model ID; use the configured value only.
 
@@ -28,6 +32,7 @@
 - `src/knowledge_base.py` - deterministic context assembly and source selection.
 - `src/campaign_brief.py` - curated source snapshot, editorial angles, and brief preparation.
 - `src/llm_integration.py` - configurable OpenAI client and usage capture.
+- `src/embedding_integration.py` - configurable OpenAI embeddings client and usage capture.
 - `src/prompt_templates.py` - prompt assembly for the three channels.
 - `src/content_validation.py` - deterministic channel-format feedback.
 - `src/content_pipeline.py` - generation, feedback, approval, and export flow.
@@ -35,6 +40,13 @@
 - `app.py` - Streamlit UI entry point.
 - `scripts/generic_vs_contextual_eval.py` - evaluation runner entry point.
 - `src/evaluation_runner.py` - evaluation orchestration.
+- `src/rag_chunking.py` - heading-aware chunking for RAG corpora.
+- `src/rag_index.py` - persistent local SQLite vector index and readiness checks.
+- `src/rag_retrieval.py` - hybrid factual-first retrieval with bounded context assembly.
+- `src/rag_service.py` - index preview/build and retrieval orchestration.
+- `src/rag_context_provider.py` - backend context provider for explicit RAG generation and revision.
+- `scripts/build_rag_index.py` - offline index preview/build CLI.
+- `scripts/retrieve_rag_context.py` - offline retrieval CLI.
 - `templates/instagram.md` - Instagram template.
 - `templates/linkedin.md` - LinkedIn template.
 - `templates/email.md` - email template.
@@ -56,6 +68,7 @@
 - Human action is required for approval and export of approved content.
 - The third teammate reviews or pairs; maximum two active cards team-wide.
 - Each coding task must be tied to one Trello card, the relevant Must IDs, and a clearly assigned file scope.
+- Fresh clones need an explicitly built compatible `.rag` index before UI RAG generation or revision can run.
 
 # Definition of done
 - Artifacts required by the Trello card are present.
