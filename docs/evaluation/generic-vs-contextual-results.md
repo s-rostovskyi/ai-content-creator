@@ -117,13 +117,9 @@ Explore the Men’s Nano Puff Jacket →
 
 ### Sandra
 
-| Criterion | 1 | 3 | 5 | Score |
-|---|---|---|---|---|
-| Factual grounding and unsupported claims |  |  |  |  |
-| Product and brand specificity |  |  |  |  |
-| Channel-format compliance |  |  |  |  |
-| Editorial quality and usefulness |  |  |  |  |
-| Source traceability |  |  |  |  |
+Sandra Obregon recorded independent ratings for all six preserved outputs on 2026-10-23 at 15:25:46.789 UTC. See the [named scorecard, rationale, limitations, and original Trello comment](generic-vs-contextual-scorecard.md#sandra-obregon--independent-saved-file-review).
+
+This was a saved-file review with local measurements, not new generation. The uploaded artifacts' commit SHA was not verified by the reviewer. Her ratings concern this historical non-RAG run only; they do not establish current RAG quality or full acceptance. Martha's independent ratings remain pending.
 
 ### Martha
 
