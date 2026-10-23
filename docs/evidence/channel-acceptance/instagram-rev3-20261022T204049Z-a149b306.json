@@ -1,0 +1,126 @@
+{
+  "channel": "instagram",
+  "campaign_brief": "Draft an Instagram caption introducing the Patagonia Men's Nano Puff Jacket, style 84212, to an English-speaking US audience planning everyday outings and outdoor trips. Focus on verified packability and practical features. Use the supplied industry context only where relevant; do not force statistics or competitor mentions into the caption. Avoid prices, discounts, urgency and unsupported environmental claims. Invite readers to explore the product details.",
+  "revision_number": 3,
+  "origin": "manual_edit",
+  "raw_response": "### CHANNEL COPY\n\nPack the Men’s Nano Puff® Jacket, style 84212, into its internal zippered chest pocket and tuck it into your bag for the day ahead. It’s warm, windproof, lightweight, and highly compressible, with a recycled polyester shell and a DWR finish that sheds light moisture. Add zippered handwarmer pockets and a regular fit, and you’ve got a layer ready for everyday outings or weekend trips. Explore the product details. #Patagonia #NanoPuff #Outerwear\n\n### REVIEWER NOTES\n\n**Supporting sources used**\n- **Product facts:** https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n- **Repair/care source for limited verification context:** https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n\n**Facts used in the caption**\n- Product is the **Men’s Nano Puff® Jacket, style 84212**\n- The jacket is **warm, windproof, lightweight, and highly compressible**\n- It has an **internal zippered chest pocket that doubles as a stuffsack**\n- It has a **100% recycled polyester ripstop shell**\n- It has a **DWR finish intended to shed light moisture**\n- It has **zippered handwarmer pockets**\n- It has a **regular fit**\n\n**Editorial interpretations used**\n- “for the day ahead”\n- “everyday outings or weekend trips”\n- “ready for” phrasing to frame the utility in a lifestyle context\n- “Explore the product details” as the CTA\n\n**Limitations / unresolved uncertainties**\n- The caption avoids any claim that the jacket is waterproof.\n- No price, discount, performance comparison, or environmental outcome is stated.\n- Although the product page includes additional construction and care details, they were not needed for this revised caption.\n- The reviewer requested that style references be distinguished from factual evidence; no external style references were needed for the revised caption, so none are listed here.",
+  "channel_copy": "Pack the Men’s Nano Puff® Jacket, style 84212, into its internal zippered chest pocket and tuck it into your bag for the day ahead. It’s warm, windproof, lightweight, and highly compressible, with a recycled polyester shell and a DWR finish that sheds light moisture. Add zippered handwarmer pockets and a regular fit, and you’ve got a layer ready for everyday outings or weekend trips. Explore the Nano Puff product details. #Patagonia #NanoPuff #Outerwear",
+  "reviewer_notes": "**Supporting sources used**\n- **Product facts:** https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n- **Repair/care source for limited verification context:** https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n\n**Facts used in the caption**\n- Product is the **Men’s Nano Puff® Jacket, style 84212**\n- The jacket is **warm, windproof, lightweight, and highly compressible**\n- It has an **internal zippered chest pocket that doubles as a stuffsack**\n- It has a **100% recycled polyester ripstop shell**\n- It has a **DWR finish intended to shed light moisture**\n- It has **zippered handwarmer pockets**\n- It has a **regular fit**\n\n**Editorial interpretations used**\n- “for the day ahead”\n- “everyday outings or weekend trips”\n- “ready for” phrasing to frame the utility in a lifestyle context\n- “Explore the product details” as the CTA\n\n**Limitations / unresolved uncertainties**\n- The caption avoids any claim that the jacket is waterproof.\n- No price, discount, performance comparison, or environmental outcome is stated.\n- Although the product page includes additional construction and care details, they were not needed for this revised caption.\n- The reviewer requested that style references be distinguished from factual evidence; no external style references were needed for the revised caption, so none are listed here.",
+  "source_manifest": [
+    {
+      "repository_relative_path": "knowledge_base/primary/brand_voice.md",
+      "knowledge_base": "primary",
+      "document_title": "Patagonia Editorial Observations",
+      "source_urls": [
+        "https://www.patagonia.com/core-values/",
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+      ],
+      "source_url_text": "https://www.patagonia.com/core-values/ and https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Core Values page says values were updated in 2022; product page date not stated",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement, published brand content",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/primary/past_content/examples.md",
+      "knowledge_base": "primary",
+      "document_title": "Published Patagonia Examples: Style References",
+      "source_urls": [
+        "https://www.patagonia.com/stories/culture/worn-wear/on-the-road-with-worn-wear-2015-spring-tour-recap/story-17733.html",
+        "https://www.patagonia.com/stories/culture/worn-wear/repair-is-a-radical-act/story-17637.html",
+        "https://www.patagonia.com/stories/culture/worn-wear/better-than-new-fashion-week-new-york-times-worn-wear-patagonia-common-threads-partnership/story-18043.html"
+      ],
+      "source_url_text": "https://www.patagonia.com/stories/culture/worn-wear/on-the-road-with-worn-wear-2015-spring-tour-recap/story-17733.html; https://www.patagonia.com/stories/culture/worn-wear/repair-is-a-radical-act/story-17637.html; https://www.patagonia.com/stories/culture/worn-wear/better-than-new-fashion-week-new-york-times-worn-wear-patagonia-common-threads-partnership/story-18043.html",
+      "publisher": "Patagonia, US website",
+      "published_updated": "“On the Road with Worn Wear – 2015 Spring Tour Recap,” Jun 15, 2015; “Repair is a Radical Act,” Nov 25, 2015; “Announcing Worn Wear,” Sep 10, 2013",
+      "accessed": "2026-10-22",
+      "evidence_type": "published brand content",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/primary/product_facts.md",
+      "knowledge_base": "primary",
+      "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+      "source_urls": [
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+      ],
+      "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Not stated on the accessed product page",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement, product fact",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/primary/repair_and_reuse.md",
+      "knowledge_base": "primary",
+      "document_title": "Care, Repair and Reuse for Patagonia Gear",
+      "source_urls": [
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "https://www.patagonia.com/returns.html",
+        "https://www.patagonia.com/repairs/",
+        "https://www.patagonia.com/start-repair/",
+        "https://www.patagonia.com/worn-wear/"
+      ],
+      "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/secondary/competitor_context.md",
+      "knowledge_base": "secondary",
+      "document_title": "The North Face Men’s THERMOBALL™ Jacket Context",
+      "source_urls": [
+        "https://www.thenorthface.com/en-us/p/mens/mens-jackets-and-vests/mens-insulated-and-down-300771/mens-thermoball-jacket-NF0A8D1P"
+      ],
+      "source_url_text": "https://www.thenorthface.com/en-us/p/mens/mens-jackets-and-vests/mens-insulated-and-down-300771/mens-thermoball-jacket-NF0A8D1P",
+      "publisher": "The North Face",
+      "published_updated": "Not stated",
+      "accessed": "2026-10-22",
+      "evidence_type": "competitor statement",
+      "section_count": 3
+    },
+    {
+      "repository_relative_path": "knowledge_base/secondary/market_trends.md",
+      "knowledge_base": "secondary",
+      "document_title": "U.S. Outdoor Participation and Textile Reuse Context",
+      "source_urls": [
+        "https://outdoorindustry.org/press-release/outdoor-participation-hits-record-levels-for-ninth-consecutive-year/",
+        "https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P101D1F1.txt"
+      ],
+      "source_url_text": "https://outdoorindustry.org/press-release/outdoor-participation-hits-record-levels-for-ninth-consecutive-year/; https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P101D1F1.txt",
+      "publisher": "Outdoor Foundation and Outdoor Industry Association; U.S. Environmental Protection Agency",
+      "published_updated": "June 18, 2024; August 2024",
+      "accessed": "2026-10-22",
+      "evidence_type": "industry research and public-institution report",
+      "section_count": 3
+    }
+  ],
+  "response_metadata": {
+    "response_id": "resp_073b7d413d9db95b006ada7378c82087d2b7853b5319998bb1",
+    "model": "gpt-5.4-mini-2026-03-17",
+    "elapsed_seconds": 3.991028400021605,
+    "usage": {
+      "input_tokens": 3869,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 2176
+      },
+      "output_tokens": 420,
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "total_tokens": 4289
+    }
+  },
+  "approval": {
+    "approved_revision": 3,
+    "approved_copy_fingerprint": "cdcbaea9da905dc743c631a05d679c1374a5678fc7e959e0588963e47c7ce078",
+    "approved_by": "Human reviewer",
+    "approved_at": "2026-10-22T20:40:49.760439+00:00"
+  }
+}
