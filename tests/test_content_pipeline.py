@@ -1,5 +1,6 @@
 import json
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,6 +19,7 @@ from src.content_pipeline import (
     ExportError,
     GenerationLimitExceededError,
     PipelineSession,
+    ResolvedGenerationContext,
     approve_current_draft,
     create_pipeline_session,
     edit_current_draft,
@@ -26,8 +28,9 @@ from src.content_pipeline import (
     revise_current_draft,
 )
 from src.document_processor import MarkdownCorpusError
-from src.knowledge_base import assemble_context_bundle
+from src.knowledge_base import ContextSourceManifestEntry, assemble_context_bundle
 from src.llm_integration import GeneratedText, OpenAIConnectionError, UsageMetrics
+from src.rag_retrieval import RetrievalBlockedError, RetrievalStaleCorpusError
 
 BRIEF = (
     "Draft an Instagram caption introducing the Patagonia Men's Nano Puff Jacket, style 84212, to an "
@@ -92,6 +95,51 @@ def _fake_generator_factory(responses: list[GeneratedText], calls: list[dict[str
     return fake_generation_function
 
 
+def _make_rag_prompt_context() -> SimpleNamespace:
+    return SimpleNamespace(
+        primary_context="RAG PRIMARY CONTEXT",
+        secondary_context="RAG SECONDARY CONTEXT",
+        source_manifest=(
+            ContextSourceManifestEntry(
+                repository_relative_path="knowledge_base/primary/rag-context.md",
+                knowledge_base="primary",
+                document_title="RAG Context",
+                source_urls=("https://example.com/rag-context",),
+                source_url_text="https://example.com/rag-context",
+                publisher="Patagonia",
+                published_updated="2026-10-22",
+                accessed="2026-10-23",
+                evidence_type="official statement",
+                section_count=1,
+            ),
+        ),
+    )
+
+
+@dataclass
+class _FakeContextProvider:
+    prompt_context: object
+    context_mode: str = "rag"
+    retrieval_provenance: dict[str, object] | None = None
+    error: Exception | None = None
+    calls: list[dict[str, object]] = field(default_factory=list)
+
+    def resolve(self, session, *, revision_feedback: str = "", current_draft=None):
+        self.calls.append(
+            {
+                "revision_feedback": revision_feedback,
+                "current_draft_revision": None if current_draft is None else current_draft.revision_number,
+            }
+        )
+        if self.error is not None:
+            raise self.error
+        return ResolvedGenerationContext(
+            context_mode=self.context_mode,
+            prompt_context=self.prompt_context,
+            retrieval_provenance=self.retrieval_provenance,
+        )
+
+
 def test_initial_generation_parses_sections_and_preserves_metadata() -> None:
     context_bundle = assemble_context_bundle(REPO_ROOT)
     session = create_pipeline_session("instagram", BRIEF, context_bundle)
@@ -112,11 +160,14 @@ def test_initial_generation_parses_sections_and_preserves_metadata() -> None:
     assert draft.response_metadata.model == "gpt-5.4-mini-2026-03-17"
     assert draft.response_metadata.usage is not None
     assert draft.response_metadata.usage.total_tokens == 18
+    assert draft.context_mode == "full_corpus"
+    assert draft.retrieval_provenance is None
     assert session.current_draft == draft
     assert session.history == [draft]
     assert session.paid_attempts_used == 1
     assert session.remaining_paid_attempts == 2
     assert BRIEF in calls[0]["user_input"]
+    assert "### Context mode\nfull_corpus" in calls[0]["user_input"]
     assert "Reviewer feedback" in calls[0]["user_input"]
 
 
@@ -238,6 +289,144 @@ def test_paid_attempt_limit_stops_after_one_generation_and_two_revisions() -> No
     assert session.paid_attempts_used == 3
 
 
+def test_initial_generation_uses_rag_context_provider_and_labels_context_mode() -> None:
+    session_context = SimpleNamespace(
+        primary_context="LEGACY FULL PRIMARY CONTEXT",
+        secondary_context="LEGACY FULL SECONDARY CONTEXT",
+        source_manifest=(),
+    )
+    session = create_pipeline_session("instagram", BRIEF, session_context)
+    rag_context = _make_rag_prompt_context()
+    provenance = {
+        "query_digest": "rag-digest",
+        "retrieval_settings": {
+            "primary_top_k": 2,
+            "secondary_top_k": 1,
+            "max_context_characters": 6000,
+        },
+        "query_usage": {"input_tokens": 5, "total_tokens": 5},
+        "query_elapsed_seconds": 0.25,
+    }
+    provider = _FakeContextProvider(prompt_context=rag_context, retrieval_provenance=provenance)
+    calls: list[dict[str, object]] = []
+    fake_generation_function = _fake_generator_factory([_generated_text(VALID_RESPONSE_ONE)], calls)
+
+    draft = generate_initial_draft(
+        session,
+        context_provider=provider,
+        generation_function=fake_generation_function,
+    )
+
+    assert provider.calls == [{"revision_feedback": "", "current_draft_revision": None}]
+    assert draft.context_mode == "rag"
+    assert draft.retrieval_provenance == provenance
+    assert draft.source_manifest == rag_context.source_manifest
+    assert "### Context mode\nrag" in calls[0]["user_input"]
+    assert "RAG PRIMARY CONTEXT" in calls[0]["user_input"]
+    assert "LEGACY FULL PRIMARY CONTEXT" not in calls[0]["user_input"]
+
+
+def test_revision_feedback_participates_in_retrieval_context_provider() -> None:
+    session_context = SimpleNamespace(
+        primary_context="LEGACY FULL PRIMARY CONTEXT",
+        secondary_context="LEGACY FULL SECONDARY CONTEXT",
+        source_manifest=(),
+    )
+    session = create_pipeline_session("instagram", BRIEF, session_context)
+    provider = _FakeContextProvider(
+        prompt_context=_make_rag_prompt_context(),
+        retrieval_provenance={"query_digest": "rag-digest"},
+    )
+    calls: list[dict[str, object]] = []
+    fake_generation_function = _fake_generator_factory(
+        [_generated_text(VALID_RESPONSE_ONE, response_id="resp_init"), _generated_text(VALID_RESPONSE_TWO, response_id="resp_rev")],
+        calls,
+    )
+
+    first_draft = generate_initial_draft(
+        session,
+        context_provider=provider,
+        generation_function=fake_generation_function,
+    )
+    revised_draft = revise_current_draft(
+        session,
+        "Make the opening more direct and keep the same facts.",
+        context_provider=provider,
+        generation_function=fake_generation_function,
+    )
+
+    assert "Make the opening more direct and keep the same facts." in provider.calls[1]["revision_feedback"]
+    assert first_draft.channel_copy in provider.calls[1]["revision_feedback"]
+    assert revised_draft.context_mode == "rag"
+    assert "### Context mode\nrag" in calls[1]["user_input"]
+
+
+def test_blocked_rag_retrieval_consumes_attempt_and_skips_generation() -> None:
+    session_context = SimpleNamespace(
+        primary_context="LEGACY FULL PRIMARY CONTEXT",
+        secondary_context="LEGACY FULL SECONDARY CONTEXT",
+        source_manifest=(),
+    )
+    session = create_pipeline_session("instagram", BRIEF, session_context)
+    provider = _FakeContextProvider(
+        prompt_context=_make_rag_prompt_context(),
+        error=RetrievalBlockedError("blocked"),
+    )
+    calls: list[dict[str, object]] = []
+    fake_generation_function = _fake_generator_factory([_generated_text(VALID_RESPONSE_ONE)], calls)
+
+    with pytest.raises(RetrievalBlockedError):
+        generate_initial_draft(
+            session,
+            context_provider=provider,
+            generation_function=fake_generation_function,
+        )
+
+    assert provider.calls == [{"revision_feedback": "", "current_draft_revision": None}]
+    assert session.paid_attempts_used == 1
+    assert session.current_draft is None
+    assert len(calls) == 0
+
+
+def test_stale_rag_retrieval_preserves_draft_and_approval_on_revision() -> None:
+    session_context = SimpleNamespace(
+        primary_context="LEGACY FULL PRIMARY CONTEXT",
+        secondary_context="LEGACY FULL SECONDARY CONTEXT",
+        source_manifest=(),
+    )
+    session = create_pipeline_session("instagram", BRIEF, session_context)
+    initial_provider = _FakeContextProvider(
+        prompt_context=_make_rag_prompt_context(),
+        retrieval_provenance={"query_digest": "rag-digest"},
+    )
+    failing_provider = _FakeContextProvider(
+        prompt_context=_make_rag_prompt_context(),
+        error=RetrievalStaleCorpusError("stale"),
+    )
+    calls: list[dict[str, object]] = []
+    fake_generation_function = _fake_generator_factory([_generated_text(VALID_RESPONSE_ONE, response_id="resp_init")], calls)
+
+    original_draft = generate_initial_draft(
+        session,
+        context_provider=initial_provider,
+        generation_function=fake_generation_function,
+    )
+    approval = approve_current_draft(session, approved_copy=original_draft.channel_copy, approved_revision=original_draft.revision_number)
+
+    with pytest.raises(RetrievalStaleCorpusError):
+        revise_current_draft(
+            session,
+            "Update the CTA and keep the packability fact.",
+            context_provider=failing_provider,
+            generation_function=fake_generation_function,
+        )
+
+    assert session.current_draft == original_draft
+    assert session.approval == approval
+    assert session.paid_attempts_used == 2
+    assert len(calls) == 1
+
+
 def test_export_writes_unique_files_and_keeps_notes_separate_from_copy(tmp_path: Path) -> None:
     context_bundle = assemble_context_bundle(REPO_ROOT)
     session = create_pipeline_session("instagram", BRIEF, context_bundle)
@@ -266,6 +455,8 @@ def test_export_writes_unique_files_and_keeps_notes_separate_from_copy(tmp_path:
     assert sidecar["revision_number"] == draft.revision_number
     assert sidecar["approval"]["approved_revision"] == draft.revision_number
     assert sidecar["source_manifest"]
+    assert sidecar["context_mode"] == "full_corpus"
+    assert sidecar["retrieval_provenance"] is None
     assert sidecar["response_metadata"]["response_id"] == "resp_123"
 
 

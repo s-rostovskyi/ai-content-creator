@@ -8,14 +8,14 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable, Literal, Protocol
 from uuid import uuid4
 
-from src.knowledge_base import ContextBundle, ContextSourceManifestEntry
+from src.prompt_templates import PromptContextBundle, build_prompt
 from src.llm_integration import GeneratedText, UsageMetrics, generate_response
-from src.prompt_templates import build_prompt
 
 Channel = Literal["instagram", "linkedin", "email"]
+ContextMode = Literal["full_corpus", "rag"]
 DraftOrigin = Literal["generation", "revision", "manual_edit"]
 SUPPORTED_CHANNELS = frozenset({"instagram", "linkedin", "email"})
 
@@ -61,6 +61,23 @@ class ResponseMetadata:
 
 
 @dataclass(frozen=True)
+class ResolvedGenerationContext:
+    context_mode: ContextMode
+    prompt_context: PromptContextBundle
+    retrieval_provenance: dict[str, object] | None = None
+
+
+class GenerationContextProvider(Protocol):
+    def resolve(
+        self,
+        session: "PipelineSession",
+        *,
+        revision_feedback: str = "",
+        current_draft: "PipelineDraft | None" = None,
+    ) -> ResolvedGenerationContext: ...
+
+
+@dataclass(frozen=True)
 class PipelineDraft:
     revision_number: int
     origin: DraftOrigin
@@ -69,8 +86,10 @@ class PipelineDraft:
     raw_response: str | None
     channel_copy: str
     reviewer_notes: str
-    source_manifest: tuple[ContextSourceManifestEntry, ...]
+    source_manifest: tuple[object, ...]
     response_metadata: ResponseMetadata | None
+    context_mode: ContextMode = "full_corpus"
+    retrieval_provenance: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -91,7 +110,7 @@ class ExportRecord:
 class PipelineSession:
     channel: Channel | str
     campaign_brief: str
-    context_bundle: ContextBundle
+    context_bundle: PromptContextBundle
     max_paid_attempts: int = 3
     paid_attempts_used: int = 0
     current_draft: PipelineDraft | None = None
@@ -109,7 +128,7 @@ GenerationFunction = Callable[..., GeneratedText]
 def create_pipeline_session(
     channel: Channel | str,
     campaign_brief: str,
-    context_bundle: ContextBundle,
+    context_bundle: PromptContextBundle,
     *,
     max_paid_attempts: int = 3,
 ) -> PipelineSession:
@@ -117,8 +136,10 @@ def create_pipeline_session(
         raise ContentPipelineError(f"Unsupported channel: {channel!r}.")
     if not isinstance(campaign_brief, str) or not campaign_brief.strip():
         raise ContentPipelineError("campaign_brief must be a non-empty string.")
-    if not isinstance(context_bundle, ContextBundle):
-        raise ContentPipelineError("context_bundle must be a ContextBundle.")
+    if not _is_prompt_context_bundle(context_bundle):
+        raise ContentPipelineError(
+            "context_bundle must provide primary_context, secondary_context, and source_manifest."
+        )
     if isinstance(max_paid_attempts, bool) or not isinstance(max_paid_attempts, int):
         raise ContentPipelineError("max_paid_attempts must be an integer.")
     if max_paid_attempts < 1:
@@ -134,6 +155,7 @@ def create_pipeline_session(
 def generate_initial_draft(
     session: PipelineSession,
     *,
+    context_provider: GenerationContextProvider | None = None,
     generation_function: GenerationFunction = generate_response,
     max_output_tokens: int = 2000,
     timeout_seconds: float = 60.0,
@@ -141,7 +163,13 @@ def generate_initial_draft(
     if session.current_draft is not None:
         raise ContentPipelineError("A current draft already exists.")
     _consume_paid_attempt(session)
-    prompt_parts = build_prompt(session.channel, session.campaign_brief, session.context_bundle)
+    resolved_context = _resolve_generation_context(session, context_provider=context_provider)
+    prompt_parts = build_prompt(
+        session.channel,
+        session.campaign_brief,
+        resolved_context.prompt_context,
+        context_mode=resolved_context.context_mode,
+    )
     response = generation_function(
         instructions=prompt_parts.trusted_instructions,
         user_input=prompt_parts.user_input_text,
@@ -155,6 +183,7 @@ def generate_initial_draft(
         parsed_sections=parsed_sections,
         raw_response=response.generated_text,
         response=response,
+        resolved_context=resolved_context,
     )
     _store_current_draft(session, draft)
     return draft
@@ -164,6 +193,7 @@ def revise_current_draft(
     session: PipelineSession,
     human_feedback: str,
     *,
+    context_provider: GenerationContextProvider | None = None,
     generation_function: GenerationFunction = generate_response,
     max_output_tokens: int = 2000,
     timeout_seconds: float = 60.0,
@@ -174,11 +204,18 @@ def revise_current_draft(
 
     _consume_paid_attempt(session)
     revision_feedback = _compose_revision_feedback(current_draft.channel_copy, human_feedback)
+    resolved_context = _resolve_generation_context(
+        session,
+        context_provider=context_provider,
+        revision_feedback=revision_feedback,
+        current_draft=current_draft,
+    )
     prompt_parts = build_prompt(
         session.channel,
         session.campaign_brief,
-        session.context_bundle,
+        resolved_context.prompt_context,
         feedback=revision_feedback,
+        context_mode=resolved_context.context_mode,
     )
     response = generation_function(
         instructions=prompt_parts.trusted_instructions,
@@ -193,6 +230,7 @@ def revise_current_draft(
         parsed_sections=parsed_sections,
         raw_response=response.generated_text,
         response=response,
+        resolved_context=resolved_context,
     )
     _store_current_draft(session, draft)
     return draft
@@ -218,6 +256,8 @@ def edit_current_draft(
         reviewer_notes=current_draft.reviewer_notes if revised_reviewer_notes is None else revised_reviewer_notes,
         source_manifest=current_draft.source_manifest,
         response_metadata=current_draft.response_metadata,
+        context_mode=getattr(current_draft, "context_mode", "full_corpus"),
+        retrieval_provenance=getattr(current_draft, "retrieval_provenance", None),
     )
     _store_current_draft(session, draft)
     return draft
@@ -352,6 +392,7 @@ def _build_draft(
     parsed_sections: ParsedSections,
     raw_response: str,
     response: GeneratedText,
+    resolved_context: ResolvedGenerationContext,
 ) -> PipelineDraft:
     response_metadata = ResponseMetadata(
         response_id=response.response_id,
@@ -368,8 +409,10 @@ def _build_draft(
         raw_response=raw_response,
         channel_copy=parsed_sections.channel_copy,
         reviewer_notes=parsed_sections.reviewer_notes,
-        source_manifest=session.context_bundle.source_manifest,
+        source_manifest=tuple(resolved_context.prompt_context.source_manifest),
         response_metadata=response_metadata,
+        context_mode=resolved_context.context_mode,
+        retrieval_provenance=resolved_context.retrieval_provenance,
     )
 
 
@@ -377,6 +420,30 @@ def _store_current_draft(session: PipelineSession, draft: PipelineDraft) -> None
     session.current_draft = draft
     session.approval = None
     session.history.append(draft)
+
+
+def _resolve_generation_context(
+    session: PipelineSession,
+    *,
+    context_provider: GenerationContextProvider | None,
+    revision_feedback: str = "",
+    current_draft: PipelineDraft | None = None,
+) -> ResolvedGenerationContext:
+    if context_provider is None:
+        return ResolvedGenerationContext(context_mode="full_corpus", prompt_context=session.context_bundle)
+
+    resolved_context = context_provider.resolve(
+        session,
+        revision_feedback=revision_feedback,
+        current_draft=current_draft,
+    )
+    if resolved_context.context_mode not in {"full_corpus", "rag"}:
+        raise ContentPipelineError("context_mode must be either 'full_corpus' or 'rag'.")
+    if not _is_prompt_context_bundle(resolved_context.prompt_context):
+        raise ContentPipelineError(
+            "Resolved context must provide primary_context, secondary_context, and source_manifest."
+        )
+    return resolved_context
 
 
 def _compose_revision_feedback(current_copy: str, human_feedback: str) -> str:
@@ -410,6 +477,15 @@ def _normalize_timestamp(approved_at: str | None) -> str:
     if approved_at is None:
         return datetime.now(timezone.utc).isoformat()
     return approved_at
+
+
+def _is_prompt_context_bundle(context: object) -> bool:
+    return all(
+        hasattr(context, attribute)
+        for attribute in ("primary_context", "secondary_context", "source_manifest")
+    ) and isinstance(getattr(context, "primary_context", None), str) and isinstance(
+        getattr(context, "secondary_context", None), str
+    )
 
 
 def _build_export_stem(draft: PipelineDraft) -> str:
@@ -455,10 +531,12 @@ def _build_export_sidecar(session: PipelineSession, approval: ApprovalRecord) ->
         "campaign_brief": draft.campaign_brief,
         "revision_number": draft.revision_number,
         "origin": draft.origin,
+        "context_mode": draft.context_mode,
         "raw_response": draft.raw_response,
         "channel_copy": draft.channel_copy,
         "reviewer_notes": draft.reviewer_notes,
         "source_manifest": [asdict(entry) for entry in draft.source_manifest],
+        "retrieval_provenance": draft.retrieval_provenance,
         "response_metadata": asdict(draft.response_metadata) if draft.response_metadata is not None else None,
         "approval": asdict(approval),
     }
@@ -469,6 +547,8 @@ __all__ = [
     "ApprovalRecord",
     "Channel",
     "ContentPipelineError",
+    "ContextMode",
+    "GenerationContextProvider",
     "DraftFormatError",
     "ExportError",
     "ExportRecord",
@@ -477,6 +557,7 @@ __all__ = [
     "ParsedSections",
     "PipelineDraft",
     "PipelineSession",
+    "ResolvedGenerationContext",
     "ResponseMetadata",
     "approve_current_draft",
     "create_pipeline_session",

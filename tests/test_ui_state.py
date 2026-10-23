@@ -1,4 +1,10 @@
+from pathlib import Path
 from types import SimpleNamespace
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import src.ui_state as ui_state
 
@@ -180,3 +186,40 @@ def test_source_staleness_survives_reruns_and_channel_switches() -> None:
     ui_state.activate_channel_session(state, "linkedin")
 
     assert ui_state.campaign_sources_are_stale(state, "instagram", refreshed_signature) is True
+
+
+
+def test_action_in_progress_helpers_toggle_and_reset() -> None:
+    state: dict[str, object] = {}
+    ui_state.initialize_state(state)
+
+    assert ui_state.action_in_progress(state, "generation") is False
+    assert ui_state.action_in_progress(state, "revision") is False
+
+    ui_state.set_action_in_progress(state, "generation", True)
+    ui_state.set_action_in_progress(state, "revision", True)
+
+    assert ui_state.action_in_progress(state, "generation") is True
+    assert ui_state.action_in_progress(state, "revision") is True
+
+    ui_state.clear_runtime_state(state)
+
+    assert ui_state.action_in_progress(state, "generation") is False
+    assert ui_state.action_in_progress(state, "revision") is False
+
+
+def test_workspace_view_state_is_channel_scoped_and_resets_with_runtime_state() -> None:
+    state: dict[str, object] = {}
+    ui_state.initialize_state(state)
+    state[ui_state.workspace_view_key("instagram")] = "Edit"
+    state[ui_state.workspace_view_key("linkedin")] = "Review"
+
+    assert state[ui_state.workspace_view_key("instagram")] == "Edit"
+    assert state[ui_state.workspace_view_key("linkedin")] == "Review"
+
+    ui_state.clear_channel_state(state, "instagram")
+    assert ui_state.workspace_view_key("instagram") not in state
+    assert state[ui_state.workspace_view_key("linkedin")] == "Review"
+
+    ui_state.clear_runtime_state(state)
+    assert ui_state.workspace_view_key("linkedin") not in state

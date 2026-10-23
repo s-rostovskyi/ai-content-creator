@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, MutableMapping
 
@@ -51,6 +51,12 @@ CHANNEL_EDITOR_WORKING_PREFIX = "channel_editor_working_"
 CHANNEL_REVISION_FEEDBACK_WORKING_PREFIX = "channel_revision_feedback_working_"
 CHANNEL_FEEDBACK_PREFIX = "channel_revision_feedback_"
 CHANNEL_SOURCE_SIGNATURE_PREFIX = "channel_source_signature_"
+CHANNEL_WORKSPACE_VIEW_PREFIX = "workspace_view_"
+CHANNEL_WORKSPACE_VIEW_WIDGET_PREFIX = "workspace_view_widget_"
+ACTION_IN_PROGRESS_PREFIX = "action_in_progress_"
+
+WORKSPACE_VIEWS = ("Draft", "Edit", "Review")
+DEFAULT_WORKSPACE_VIEW = WORKSPACE_VIEWS[0]
 
 CHANNEL_LABELS = {
     "instagram": "Instagram",
@@ -121,8 +127,31 @@ def channel_source_signature_key(channel: str) -> str:
     return scoped_key(CHANNEL_SOURCE_SIGNATURE_PREFIX, channel)
 
 
+def action_in_progress_key(action: str) -> str:
+    return scoped_key(ACTION_IN_PROGRESS_PREFIX, action)
+
+
 def approval_confirm_key(channel: str, revision: int) -> str:
     return f"{APPROVAL_CONFIRM_PREFIX}{channel}_{revision}"
+
+
+def workspace_view_key(channel: str) -> str:
+    return scoped_key(CHANNEL_WORKSPACE_VIEW_PREFIX, channel)
+
+
+def workspace_view_widget_key(channel: str) -> str:
+    return scoped_key(CHANNEL_WORKSPACE_VIEW_WIDGET_PREFIX, channel)
+
+
+def get_workspace_view(state: MutableMapping[str, Any], channel: str) -> str:
+    value = state.get(workspace_view_key(channel))
+    return value if isinstance(value, str) and value in WORKSPACE_VIEWS else DEFAULT_WORKSPACE_VIEW
+
+
+def set_workspace_view(state: MutableMapping[str, Any], channel: str, workspace_view: str) -> None:
+    if workspace_view not in WORKSPACE_VIEWS:
+        workspace_view = DEFAULT_WORKSPACE_VIEW
+    state[workspace_view_key(channel)] = workspace_view
 
 
 def initialize_state(state: MutableMapping[str, Any]) -> None:
@@ -136,6 +165,8 @@ def initialize_state(state: MutableMapping[str, Any]) -> None:
     state.setdefault(SOURCE_INVENTORY_CURRENT_KEY, None)
     state.setdefault(SOURCE_INVENTORY_ERROR_KEY, "")
     state.setdefault(PIPELINE_SESSION_KEY, None)
+    state.setdefault(action_in_progress_key("generation"), False)
+    state.setdefault(action_in_progress_key("revision"), False)
     state.setdefault(STATUS_MESSAGE_KEY, "")
     state.setdefault(ERROR_MESSAGE_KEY, "")
     state.setdefault(PENDING_CAMPAIGN_REPLACEMENT_KEY, None)
@@ -173,6 +204,8 @@ def clear_runtime_state(state: MutableMapping[str, Any]) -> None:
         state.pop(editor_working_notes_key(channel), None)
         state.pop(revision_feedback_key(channel), None)
         state.pop(revision_feedback_working_key(channel), None)
+        state.pop(workspace_view_key(channel), None)
+        state.pop(workspace_view_widget_key(channel), None)
         for key in list(state.keys()):
             if isinstance(key, str) and key.startswith(APPROVAL_CONFIRM_PREFIX) and key.startswith(f"{APPROVAL_CONFIRM_PREFIX}{channel}_"):
                 del state[key]
@@ -181,6 +214,8 @@ def clear_runtime_state(state: MutableMapping[str, Any]) -> None:
     state[CAMPAIGN_BRIEF_KEY] = None
     state[CAMPAIGN_SIGNATURE_KEY] = None
     state[PENDING_CAMPAIGN_REPLACEMENT_KEY] = None
+    state.pop(action_in_progress_key("generation"), None)
+    state.pop(action_in_progress_key("revision"), None)
     state[STATUS_MESSAGE_KEY] = ""
     state[ERROR_MESSAGE_KEY] = ""
 
@@ -198,6 +233,8 @@ def clear_channel_state(state: MutableMapping[str, Any], channel: str) -> None:
     state.pop(editor_working_notes_key(channel), None)
     state.pop(revision_feedback_key(channel), None)
     state.pop(revision_feedback_working_key(channel), None)
+    state.pop(workspace_view_key(channel), None)
+    state.pop(workspace_view_widget_key(channel), None)
     for key in list(state.keys()):
         if isinstance(key, str) and key.startswith(f"{APPROVAL_CONFIRM_PREFIX}{channel}_"):
             del state[key]
@@ -393,6 +430,14 @@ def source_inventory_is_current(state: MutableMapping[str, Any]) -> bool:
 def get_source_inventory_error(state: MutableMapping[str, Any]) -> str:
     error = state.get(SOURCE_INVENTORY_ERROR_KEY)
     return error if isinstance(error, str) else ""
+
+
+def set_action_in_progress(state: MutableMapping[str, Any], action: str, in_progress: bool) -> None:
+    state[action_in_progress_key(action)] = in_progress
+
+
+def action_in_progress(state: MutableMapping[str, Any], action: str) -> bool:
+    return bool(state.get(action_in_progress_key(action)))
 
 
 def set_channel_source_signature(state: MutableMapping[str, Any], channel: str, source_signature: Any) -> None:

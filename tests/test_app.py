@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 from types import SimpleNamespace
 import gc
 from contextlib import nullcontext
@@ -20,14 +20,35 @@ import src.content_pipeline as pipeline
 import src.knowledge_base as knowledge_base
 import src.source_registry as source_registry
 import src.ui_state as ui_state
+import src.rag_context_provider as rag_context_provider
+import src.rag_service as rag_service
 
 BRIEF = ui_state.DEFAULT_BRIEF
 DEFAULT_TEST_CHANNEL = "instagram"
-
+PRIMARY_URL = "https://example.com/primary"
+SECONDARY_URL = "https://example.com/secondary"
 
 @pytest.fixture(autouse=True)
 def _default_source_management_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SOURCE_MANAGEMENT_ENABLED", "false")
+
+
+@pytest.fixture(autouse=True)
+def _default_rag_index_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_describe_status(self, *, channel: str, campaign_brief: str, revision_feedback: str = ""):
+        del revision_feedback
+        return rag_context_provider.RagIndexStatus(
+            state="ready",
+            message="RAG index ready.",
+            details=f"Index available for {channel}.",
+            index_path=REPO_ROOT / ".rag" / "rag_index.sqlite3",
+            corpus_snapshot_id="test-snapshot",
+            existing_index_matches=True,
+            existing_index_reason="ready",
+            embedding_model_id="text-embedding-3-small",
+        )
+
+    monkeypatch.setattr(rag_context_provider.LiveRagContextProvider, "describe_status", fake_describe_status)
 
 
 def _editor_copy_key(channel: str = DEFAULT_TEST_CHANNEL) -> str:
@@ -48,6 +69,14 @@ def _export_record_key(channel: str = DEFAULT_TEST_CHANNEL) -> str:
 
 def _approval_confirm_key(channel: str = DEFAULT_TEST_CHANNEL, revision: int = 1) -> str:
     return ui_state.approval_confirm_key(channel, revision)
+
+
+def _workspace_view_key(channel: str = DEFAULT_TEST_CHANNEL) -> str:
+    return ui_state.workspace_view_key(channel)
+
+
+def _workspace_view_widget_key(channel: str = DEFAULT_TEST_CHANNEL) -> str:
+    return ui_state.workspace_view_widget_key(channel)
 
 
 def _active_channel(at: AppTest) -> str:
@@ -348,11 +377,13 @@ def test_explicit_generation_requires_button_click(monkeypatch) -> None:
 
     _run_loaded_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
 
     assert calls["generate"] == 1
+    assert any("Remaining generation attempts: 2 of 3" in caption.value for caption in at.caption)
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     assert at.text_area(key=_editor_copy_key()).value == "Generated copy v1"
     assert at.text_area(key=_editor_notes_key()).value == "Generated notes v1"
-    assert any("Remaining generation attempts: 2 of 3" in caption.value for caption in at.caption)
     assert len(at.download_button) == 0
     del at
     gc.collect()
@@ -384,6 +415,7 @@ def test_revision_updates_remaining_attempts_immediately(monkeypatch) -> None:
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please tighten the opening.")
     at.button(key="revise_button").click().run()
 
@@ -417,6 +449,7 @@ def test_revision_failure_preserves_draft_and_attempts(monkeypatch) -> None:
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please tighten the opening.")
     at.button(key="revise_button").click().run()
 
@@ -482,6 +515,7 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please revise the opening and keep the verified product details.")
     at.button(key="revise_button").click().run()
 
@@ -492,18 +526,22 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
     assert session.current_draft.reviewer_notes == "Revised notes"
     assert session.current_draft.response_metadata.response_id == "resp_revised"
     assert any("Instagram caption: 2 words; 0 hashtags." in caption.value for caption in at.caption)
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     assert at.text_area(key=_editor_copy_key()).value == "Revised copy"
     assert at.text_area(key=_editor_notes_key()).value == "Revised notes"
+    at.radio(key=_workspace_view_widget_key()).set_value("Draft").run()
     assert any("Revised copy" in element.value for element in at.markdown)
     assert any("Revised notes" in element.value for element in at.markdown)
     assert any("Response ID: resp_revised" in element.value for element in at.markdown)
 
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=2)).check().run()
     at.button(key="approve_button").click().run()
     assert session.approval is not None
     assert session.approval.approved_revision == 2
 
     at.run()
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     assert calls["revise"] == 1
     assert at.text_area(key=_editor_copy_key()).value == "Revised copy"
     assert at.text_area(key=_editor_notes_key()).value == "Revised notes"
@@ -521,10 +559,10 @@ def test_manual_save_updates_revision_and_clears_review_state(monkeypatch) -> No
     def fake_export(session, **kwargs):
         temp_dir = Path(tempfile.gettempdir()) / "patagonia-content-studio-tests"
         temp_dir.mkdir(parents=True, exist_ok=True)
-        markdown_path = temp_dir / "manual-save.md"
-        json_path = temp_dir / "manual-save.json"
+        markdown_path = temp_dir / "rag-index-failure.md"
+        json_path = temp_dir / "rag-index-failure.json"
         markdown_path.write_text(session.current_draft.channel_copy + "\n", encoding="utf-8")
-        json_path.write_text("{\"review\": true}\n", encoding="utf-8")
+        json_path.write_text('{"review": true}\n', encoding="utf-8")
         return SimpleNamespace(markdown_path=markdown_path, json_path=json_path)
 
     monkeypatch.setattr(pipeline, "generate_initial_draft", fake_generate)
@@ -534,9 +572,11 @@ def test_manual_save_updates_revision_and_clears_review_state(monkeypatch) -> No
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key()).check().run()
     at.button(key="approve_button").click().run()
 
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     at.text_area(key=_editor_copy_key()).set_value("Edited copy").run()
     at.button(key="save_edit_button").click().run()
 
@@ -547,6 +587,9 @@ def test_manual_save_updates_revision_and_clears_review_state(monkeypatch) -> No
     assert session.approval is None
     assert at.session_state.get(_export_record_key()) is None
     assert len(at.download_button) == 0
+    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    assert any("Saved revision: 2" in caption.value for caption in at.caption)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
     del at
     gc.collect()
@@ -582,6 +625,7 @@ def test_manual_save_reviewer_notes_enables_revision_approval(monkeypatch) -> No
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
 
     at.text_area(key=_editor_notes_key()).set_value("Updated reviewer notes.").run()
     at.button(key="save_edit_button").click().run()
@@ -591,6 +635,8 @@ def test_manual_save_reviewer_notes_enables_revision_approval(monkeypatch) -> No
     assert session.current_draft.revision_number == 2
     assert session.current_draft.reviewer_notes == "Updated reviewer notes."
     assert at.text_area(key=_editor_notes_key()).value == "Updated reviewer notes."
+    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.checkbox(key=_approval_confirm_key(revision=2)).disabled is False
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
 
@@ -718,6 +764,8 @@ def test_campaign_reload_preserves_unchanged_session_and_per_channel_work(monkey
     at.run()
     _load_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=1)).check().run()
     at.button(key="approve_button").click().run()
 
@@ -742,9 +790,11 @@ def test_campaign_reload_preserves_unchanged_session_and_per_channel_work(monkey
     assert at.session_state[ui_state.export_record_key("instagram")] is instagram_export
     assert at.session_state.get(ui_state.export_record_key("linkedin")) is None
     assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is instagram_session
+    assert at.radio(key=_workspace_view_widget_key("instagram")).value == "Review"
+    assert len(at.download_button) == 2
+    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
     assert at.text_area(key=_editor_copy_key("instagram")).value == "Instagram copy v1"
     assert at.text_area(key=_editor_notes_key("instagram")).value == "Instagram notes v1"
-    assert len(at.download_button) == 2
     assert any("Instagram: Approved" in caption.value for caption in at.caption)
     assert any("LinkedIn: Draft" in caption.value for caption in at.caption)
     del at
@@ -768,8 +818,10 @@ def test_channel_switch_preserves_unsaved_editor_state_and_feedback(monkeypatch)
     at.run()
     _load_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
     at.text_area(key=_editor_copy_key("instagram")).set_value("Unsaved Instagram copy").run()
     at.text_area(key=_editor_notes_key("instagram")).set_value("Unsaved Instagram notes").run()
+    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Review").run()
     at.text_area(key=_revision_feedback_key("instagram")).set_value("Tighten the opening.").run()
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is True
 
@@ -778,9 +830,11 @@ def test_channel_switch_preserves_unsaved_editor_state_and_feedback(monkeypatch)
     _load_campaign(at, channel="instagram", brief=BRIEF)
 
     assert calls["generate"] == 2
+    assert at.radio(key=_workspace_view_widget_key("instagram")).value == "Review"
+    assert at.text_area(key=_revision_feedback_key("instagram")).value == "Tighten the opening."
+    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
     assert at.text_area(key=_editor_copy_key("instagram")).value == "Unsaved Instagram copy"
     assert at.text_area(key=_editor_notes_key("instagram")).value == "Unsaved Instagram notes"
-    assert at.text_area(key=_revision_feedback_key("instagram")).value == "Tighten the opening."
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is True
     assert at.session_state[ui_state.editor_working_copy_key("linkedin")] == "LinkedIn copy v1"
     assert at.session_state[ui_state.editor_working_notes_key("linkedin")] == "LinkedIn notes v1"
@@ -811,6 +865,7 @@ def test_campaign_reload_preserves_unchanged_session(monkeypatch) -> None:
     at.run()
     _load_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key()).check().run()
     at.button(key="approve_button").click().run()
 
@@ -949,7 +1004,6 @@ def test_format_validation_renders_without_api_calls_and_preserves_approval_stat
     at.run()
     _load_campaign(at)
     _run_generation(at)
-
     assert any("Instagram caption: 60 words; 0 hashtags." in caption.value for caption in at.caption)
     approval_before = SimpleNamespace(
         approved_revision=1,
@@ -964,7 +1018,7 @@ def test_format_validation_renders_without_api_calls_and_preserves_approval_stat
 
     assert calls == {"generate": 1}
     assert session.approval is approval_before
-    assert sum(1 for caption in at.caption if "Instagram caption: 60 words; 0 hashtags." in caption.value) >= 2
+    assert sum(1 for caption in at.caption if "Instagram caption: 60 words; 0 hashtags." in caption.value) >= 1
     assert any("passing format checks does not verify factual accuracy." in caption.value for caption in at.caption)
     del at
     gc.collect()
@@ -986,20 +1040,24 @@ def test_saved_draft_validation_updates_after_manual_save(monkeypatch) -> None:
     at.run()
     _load_campaign(at)
     _run_generation(at)
-
     assert any("Instagram caption: 60 words; 0 hashtags." in caption.value for caption in at.caption)
     initial_caption_count = sum(1 for caption in at.caption if "Instagram caption: 60 words; 0 hashtags." in caption.value)
-    assert initial_caption_count >= 2
+    assert initial_caption_count >= 1
 
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     at.text_area(key=_editor_copy_key()).set_value(_instagram_copy(121)).run()
+    at.radio(key=_workspace_view_widget_key()).set_value("Draft").run()
     assert any("Instagram caption: 60 words; 0 hashtags." in caption.value for caption in at.caption)
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is True
 
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     at.button(key="save_edit_button").click().run()
 
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert calls == {"generate": 1}
     assert session.current_draft.revision_number == 2
+    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    at.radio(key=_workspace_view_widget_key()).set_value("Draft").run()
     assert any("Instagram caption: 121 words; 0 hashtags." in caption.value for caption in at.caption)
     assert any("Instagram captions must be 60-120 words; current draft is 121." in warning.value for warning in at.warning)
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is False
@@ -1159,6 +1217,7 @@ def test_source_management_offline_flow_refreshes_context_and_restores_snapshot(
         session_before.channel,
         ui_state.get_source_inventory_signature(at.session_state),
     ) is True
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.button(key="revise_button").disabled is True
 
     at.selectbox(key="source_delete_source").set_value(generated_source_id).run()
@@ -1283,14 +1342,15 @@ def test_stale_campaign_blocks_generation_and_revision_handlers(tmp_path, monkey
     at, repo_root = _make_app_test(monkeypatch, tmp_path, enable_source_management=True)
     _load_campaign(at)
     _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
 
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     edited_source = repo_root / "knowledge_base" / "secondary" / "market_trends.md"
     edited_source.write_text(edited_source.read_text(encoding="utf-8") + "\n\nTemporary stale-source note.\n", encoding="utf-8")
     at.run()
 
-    import app as app_module
 
+    import app as app_module
     warnings: list[str] = []
     generate_called = False
     revise_called = False
@@ -1342,5 +1402,900 @@ def test_source_management_disabled_rejects_server_side_mutations(tmp_path, monk
     with pytest.raises(source_registry.SourceRegistryError, match="Source management is disabled"):
         app_module._apply_prepared_source_operation(prepared_operation, action="creating the source")
 
+    del at
+    gc.collect()
+
+
+
+
+def _make_rag_build_plan(
+    repo_root: Path,
+    *,
+    state: str = "ready",
+    snapshot_id: str = "snapshot-123",
+    embedding_model_id: str | None = "text-embedding-3-small",
+    chunk_count: int = 6,
+    reusable_embedding_count: int = 4,
+    pending_embedding_count: int = 2,
+    planned_batches: tuple[object, ...] | None = None,
+):
+    if planned_batches is None:
+        planned_batches = (
+            SimpleNamespace(chunk_ids=("chunk-1", "chunk-2"), total_input_characters=128),
+            SimpleNamespace(chunk_ids=("chunk-3", "chunk-4"), total_input_characters=128),
+        )
+    return SimpleNamespace(
+        repo_root=repo_root,
+        index_path=repo_root / ".rag" / "rag_index.sqlite3",
+        embedding_model_id=embedding_model_id,
+        chunking_policy=SimpleNamespace(max_chunk_characters=4000, overlap_characters=200),
+        corpus_snapshot=SimpleNamespace(snapshot_id=snapshot_id),
+        chunk_count=chunk_count,
+        chunk_counts_by_knowledge_base=(("primary", 3), ("secondary", 3)),
+        input_character_sizes=(64, 64, 64, 64, 64, 64),
+        pending_embedding_count=pending_embedding_count,
+        reusable_embedding_count=reusable_embedding_count,
+        planned_batches=planned_batches,
+        existing_index_path=repo_root / ".rag" / "rag_index.sqlite3" if state != "missing" else None,
+        existing_index_matches={"ready": True, "missing": None, "stale": False, "incompatible": False}[state],
+        existing_index_reason={"ready": "match", "missing": "missing", "stale": "snapshot_mismatch", "incompatible": "model_mismatch"}[state],
+        vector_dimensions=1536,
+    )
+
+
+
+def _make_rag_build_result(repo_root: Path):
+    completed_batches = (
+        SimpleNamespace(
+            chunk_ids=("chunk-1", "chunk-2"),
+            input_character_sizes=(128, 128),
+            total_input_characters=256,
+            requested_model="text-embedding-3-small",
+            returned_model="text-embedding-3-small",
+            vector_dimensions=1536,
+            usage=SimpleNamespace(prompt_tokens=32, total_tokens=48),
+            elapsed_seconds=0.25,
+        ),
+    )
+    return SimpleNamespace(
+        repo_root=repo_root,
+        index_path=repo_root / ".rag" / "rag_index.sqlite3",
+        manifest_path=repo_root / ".rag" / "rag_build_manifest.json",
+        corpus_snapshot=SimpleNamespace(snapshot_id="snapshot-123"),
+        embedding_model_id="text-embedding-3-small",
+        chunking_policy=SimpleNamespace(max_chunk_characters=4000, overlap_characters=200),
+        vector_dimensions=1536,
+        chunk_count=6,
+        chunk_counts_by_knowledge_base=(("primary", 3), ("secondary", 3)),
+        reused_embedding_count=4,
+        embedded_chunk_count=2,
+        planned_batches=(SimpleNamespace(chunk_ids=("chunk-1", "chunk-2"), total_input_characters=256),),
+        completed_batches=completed_batches,
+        existing_index_path=repo_root / ".rag" / "rag_index.sqlite3",
+        build_elapsed_seconds=1.234,
+    )
+
+
+
+def _make_rag_index_app_test(
+    monkeypatch,
+    tmp_path: Path,
+    *,
+    plan_provider,
+    build_provider,
+    enable_source_management: bool = True,
+):
+    repo_root = _prepare_temp_repo(monkeypatch, tmp_path)
+    if enable_source_management:
+        monkeypatch.setenv("SOURCE_MANAGEMENT_ENABLED", "true")
+    else:
+        monkeypatch.setenv("SOURCE_MANAGEMENT_ENABLED", "false")
+    import app as app_module
+
+    monkeypatch.setattr(app_module, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(app_module, "SOURCE_MANAGEMENT_ENABLED", enable_source_management)
+    monkeypatch.setattr(app_module.rag_service, "plan_rag_index_build", plan_provider)
+    monkeypatch.setattr(app_module.rag_service, "build_rag_index", build_provider)
+    at = AppTest.from_file(REPO_ROOT / "app.py")
+    at.run()
+    return at, repo_root, app_module
+
+
+@pytest.mark.parametrize(
+    ("state", "message_fragment"),
+    [
+        ("ready", "RAG index ready."),
+        ("missing", "No local RAG index was found"),
+        ("stale", "older source snapshot"),
+        ("incompatible", "does not match the configured embedding model or settings"),
+    ],
+)
+def test_rag_index_status_from_build_plan_maps_expected_messages(tmp_path, monkeypatch, state, message_fragment) -> None:
+    repo_root = _prepare_temp_repo(monkeypatch, tmp_path)
+    import app as app_module
+
+    status = app_module._rag_index_status_from_build_plan(_make_rag_build_plan(repo_root, state=state))
+    assert status.state == state
+    assert message_fragment in status.message
+    assert str(repo_root / ".rag" / "rag_index.sqlite3") in status.details
+    assert "snapshot-123" in status.details
+
+
+
+def test_rag_index_refresh_preview_and_build_require_confirmation_and_preserve_campaign_state(tmp_path, monkeypatch) -> None:
+    build_calls: list[Path] = []
+
+    def plan_provider(*, repo_root):
+        return _make_rag_build_plan(repo_root)
+
+    def build_provider(*, repo_root):
+        build_calls.append(repo_root)
+        return _make_rag_build_result(repo_root)
+
+    at, repo_root, app_module = _make_rag_index_app_test(
+        monkeypatch,
+        tmp_path,
+        plan_provider=plan_provider,
+        build_provider=build_provider,
+    )
+    _patch_fake_generation(monkeypatch)
+    _load_campaign(at)
+    _run_generation(at)
+    session_before = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+
+    assert any("RAG index status: Ready" in caption.value for caption in at.caption)
+
+    at.button(key="rag_index_preview_button").click().run()
+    assert build_calls == []
+    assert at.session_state[app_module.RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] is True
+    assert any("Index update preview ready." in success.value for success in at.success)
+    assert any("Corpus snapshot: snapshot-123" in caption.value for caption in at.caption)
+    assert any("Chunk count: 6" in caption.value for caption in at.caption)
+    assert any("Reusable embeddings: 4 | Missing embeddings: 2" in caption.value for caption in at.caption)
+    assert any("Planned batches: 2" in caption.value for caption in at.caption)
+    assert at.button(key="rag_index_build_button").disabled is True
+
+    at.checkbox(key="rag_index_build_confirm").check().run()
+    assert at.button(key="rag_index_build_button").disabled is False
+    at.button(key="rag_index_build_button").click().run()
+
+    session_after = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    summary = at.session_state[app_module.RAG_INDEX_BUILD_SUMMARY_KEY]
+    assert session_after is session_before
+    assert len(build_calls) == 1
+    assert summary["outcome"] == "success"
+    assert summary["corpus_snapshot_id"] == "snapshot-123"
+    assert summary["embedded_chunk_count"] == 2
+    assert summary["reused_embedding_count"] == 4
+    assert summary["actual_api_batch_count"] == 1
+    assert summary["resulting_index_status"] == "Ready"
+    assert at.session_state[app_module.RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] is True
+    assert any("RAG index updated." in success.value for success in at.success)
+    assert any("Outcome: success" in caption.value for caption in at.caption)
+    assert any("Embedded chunks: 2 | Reused chunks: 4" in caption.value for caption in at.caption)
+    assert any("Actual API batches: 1 | Elapsed: 1.234s" in caption.value for caption in at.caption)
+    assert any("Usage: prompt_tokens=32 | total_tokens=48" in caption.value for caption in at.caption)
+
+    at.run()
+    assert len(build_calls) == 1
+    assert at.session_state[app_module.RAG_INDEX_BUILD_SUMMARY_KEY]["outcome"] == "success"
+    assert at.session_state[app_module.RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] is True
+    assert any("Outcome: success" in caption.value for caption in at.caption)
+    assert any("Embedded chunks: 2 | Reused chunks: 4" in caption.value for caption in at.caption)
+    assert any("Actual API batches: 1 | Elapsed: 1.234s" in caption.value for caption in at.caption)
+    del at
+    gc.collect()
+
+
+
+def test_rag_index_refresh_preview_is_invalidated_when_sources_change(tmp_path, monkeypatch) -> None:
+    plan_state = {"current": None}
+
+    def plan_provider(*, repo_root):
+        return plan_state["current"] or _make_rag_build_plan(repo_root)
+
+    def build_provider(*, repo_root):
+        raise AssertionError("build should not run for a stale preview")
+
+    at, repo_root, app_module = _make_rag_index_app_test(
+        monkeypatch,
+        tmp_path,
+        plan_provider=plan_provider,
+        build_provider=build_provider,
+    )
+    plan_state["current"] = _make_rag_build_plan(repo_root)
+    at.run()
+
+    at.button(key="rag_index_preview_button").click().run()
+    assert any("Index update preview ready." in success.value for success in at.success)
+
+    plan_state["current"] = _make_rag_build_plan(
+        repo_root,
+        state="stale",
+        snapshot_id="snapshot-999",
+        reusable_embedding_count=1,
+        pending_embedding_count=5,
+    )
+    at.run()
+
+    assert any("changed after the last preview" in warning.value for warning in at.warning)
+    assert not any(button.key == "rag_index_build_button" for button in at.button)
+    assert not any(checkbox.key == "rag_index_build_confirm" for checkbox in at.checkbox)
+    del at
+    gc.collect()
+
+
+
+def test_rag_index_refresh_is_blocked_when_source_management_is_disabled(tmp_path, monkeypatch) -> None:
+    def plan_provider(*, repo_root):
+        return _make_rag_build_plan(repo_root)
+
+    def build_provider(*, repo_root):
+        raise AssertionError("build should not run when source management is disabled")
+
+    at, repo_root, app_module = _make_rag_index_app_test(
+        monkeypatch,
+        tmp_path,
+        plan_provider=plan_provider,
+        build_provider=build_provider,
+        enable_source_management=False,
+    )
+
+    assert any("read-only in this deployment" in info.value for info in at.info)
+    assert not any(button.key == "rag_index_preview_button" for button in at.button)
+    assert not any(button.key == "rag_index_build_button" for button in at.button)
+
+    monkeypatch.setattr(app_module, "SOURCE_MANAGEMENT_ENABLED", False)
+    with pytest.raises(rag_service.RagServiceError, match="Index building is unavailable"):
+        app_module._run_rag_index_build(_make_rag_build_plan(repo_root))
+
+    del at
+    gc.collect()
+
+
+
+def test_rag_index_build_failure_preserves_campaign_work_and_editor_buffers(tmp_path, monkeypatch) -> None:
+    build_calls: list[Path] = []
+
+    def plan_provider(*, repo_root):
+        return _make_rag_build_plan(repo_root)
+
+    def build_provider(*, repo_root):
+        build_calls.append(repo_root)
+        raise rag_service.RagServiceError("simulated build failure")
+
+    at, repo_root, app_module = _make_rag_index_app_test(
+        monkeypatch,
+        tmp_path,
+        plan_provider=plan_provider,
+        build_provider=build_provider,
+    )
+    _patch_fake_generation(monkeypatch)
+
+    def fake_export(session, **kwargs):
+        temp_dir = Path(tempfile.gettempdir()) / "patagonia-content-studio-tests"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        markdown_path = temp_dir / "rag-index-failure.md"
+        json_path = temp_dir / "rag-index-failure.json"
+        markdown_path.write_text(session.current_draft.channel_copy + "\n", encoding="utf-8")
+        json_path.write_text('{"review": true}\n', encoding="utf-8")
+        return SimpleNamespace(markdown_path=markdown_path, json_path=json_path)
+
+    monkeypatch.setattr(pipeline, "export_approved_current_draft", fake_export)
+
+    _load_campaign(at)
+    _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    at.checkbox(key=_approval_confirm_key(revision=1)).check().run()
+    at.button(key="approve_button").click().run()
+    session_before = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    approval_before = session_before.approval
+    assert len(at.download_button) == 2
+
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    at.text_area(key=_editor_copy_key()).set_value("Edited copy").run()
+    at.text_area(key=_editor_notes_key()).set_value("Edited notes").run()
+    editor_copy_before = at.text_area(key=_editor_copy_key()).value
+    editor_notes_before = at.text_area(key=_editor_notes_key()).value
+
+    at.button(key="rag_index_preview_button").click().run()
+    at.checkbox(key="rag_index_build_confirm").check().run()
+    at.button(key="rag_index_build_button").click().run()
+
+    session_after = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    summary = at.session_state[app_module.RAG_INDEX_BUILD_SUMMARY_KEY]
+    assert session_after is session_before
+    assert session_after.approval == approval_before
+    assert session_after.current_draft is session_before.current_draft
+    assert at.text_area(key=_editor_copy_key()).value == editor_copy_before
+    assert at.text_area(key=_editor_notes_key()).value == editor_notes_before
+    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    assert ui_state.get_export_record(at.session_state, session_after.channel) is not None
+    assert len(build_calls) == 1
+    assert summary["outcome"] == "failure"
+    assert summary["corpus_snapshot_id"] == "snapshot-123"
+    assert summary["planned_batch_count"] == 2
+    assert summary["resulting_index_status"] == "Ready"
+    assert summary["error_message"] == "simulated build failure"
+    assert at.session_state[app_module.RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] is True
+    assert any("simulated build failure" in error.value for error in at.error)
+    assert any("Outcome: failure" in caption.value for caption in at.caption)
+
+    at.run()
+    assert len(build_calls) == 1
+    assert at.session_state[app_module.RAG_INDEX_BUILD_SUMMARY_KEY]["outcome"] == "failure"
+    assert at.session_state[app_module.RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] is True
+    assert any("Outcome: failure" in caption.value for caption in at.caption)
+    del at
+    gc.collect()
+
+
+def _make_rag_prompt_context():
+    return SimpleNamespace(
+        primary_context="### Primary retrieved context\nThe internal chest pocket doubles as a stuffsack.\n",
+        secondary_context="### Secondary retrieved context\nEditorial context from the companion source.\n",
+        source_manifest=(
+            SimpleNamespace(
+                repository_relative_path="knowledge_base/primary/nano-puff-facts.md",
+                knowledge_base="primary",
+                document_title="Nano Puff facts",
+                source_urls=(PRIMARY_URL,),
+                source_url_text=PRIMARY_URL,
+                publisher="Patagonia, US website",
+                published_updated="2026-10-23",
+                accessed="2026-10-23",
+                evidence_type="official statement",
+                chunk_ids=("primary-facts-1",),
+                chunk_scores=(0.91,),
+                chunk_kinds=("facts",),
+            ),
+            SimpleNamespace(
+                repository_relative_path="knowledge_base/secondary/outdoor-context.md",
+                knowledge_base="secondary",
+                document_title="Outdoor context",
+                source_urls=(SECONDARY_URL,),
+                source_url_text=SECONDARY_URL,
+                publisher="Example Publisher",
+                published_updated="2026-10-23",
+                accessed="2026-10-23",
+                evidence_type="analysis",
+                chunk_ids=("secondary-editorial-1",),
+                chunk_scores=(0.63,),
+                chunk_kinds=("editorial",),
+            ),
+        ),
+    )
+
+
+
+def _make_rag_retrieval_provenance():
+    return {
+        "saved_at_utc": "2026-10-23T10:49:24Z",
+        "channel": DEFAULT_TEST_CHANNEL,
+        "retrieval_status": "success",
+        "query": {
+            "text": "query text",
+            "digest": "query-digest",
+            "character_count": 42,
+        },
+        "corpus_snapshot_id": "snapshot-123",
+        "retrieval_settings": {
+            "index_path": str(REPO_ROOT / ".rag" / "rag_index.sqlite3"),
+            "embedding_model_id": "text-embedding-3-small",
+            "primary_top_k": 3,
+            "secondary_top_k": 3,
+            "primary_minimum_similarity": 0.18,
+            "secondary_minimum_similarity": 0.12,
+            "max_context_characters": 6000,
+            "timeout_seconds": 30.0,
+        },
+        "manifest": {
+            "corpus_snapshot_id": "snapshot-123",
+            "embedding_model_id": "text-embedding-3-small",
+            "requested_model_id": "text-embedding-3-small",
+            "returned_model_id": "text-embedding-3-small",
+            "query_digest": "query-digest",
+            "query_character_count": 42,
+            "query_usage": {"prompt_tokens": 11, "total_tokens": 11},
+            "query_elapsed_seconds": 0.123,
+            "omission_reasons": ["primary-editorial-1:budget_exceeded", "secondary-editorial-1:ranked_out"],
+            "included_sources": [
+                {
+                    "repository_relative_path": "knowledge_base/primary/nano-puff-facts.md",
+                    "knowledge_base": "primary",
+                    "document_title": "Nano Puff facts",
+                    "source_urls": [PRIMARY_URL],
+                    "source_url_text": PRIMARY_URL,
+                    "publisher": "Patagonia, US website",
+                    "published_updated": "2026-10-23",
+                    "accessed": "2026-10-23",
+                    "evidence_type": "official statement",
+                    "chunk_ids": ["primary-facts-1"],
+                    "chunk_scores": [0.91],
+                    "chunk_kinds": ["facts"],
+                },
+                {
+                    "repository_relative_path": "knowledge_base/secondary/outdoor-context.md",
+                    "knowledge_base": "secondary",
+                    "document_title": "Outdoor context",
+                    "source_urls": [SECONDARY_URL],
+                    "source_url_text": SECONDARY_URL,
+                    "publisher": "Example Publisher",
+                    "published_updated": "2026-10-23",
+                    "accessed": "2026-10-23",
+                    "evidence_type": "analysis",
+                    "chunk_ids": ["secondary-editorial-1"],
+                    "chunk_scores": [0.63],
+                    "chunk_kinds": ["editorial"],
+                },
+            ],
+        },
+        "blocked_reason": None,
+        "query_usage": {"prompt_tokens": 11, "total_tokens": 11},
+        "query_elapsed_seconds": 0.123,
+        "source_manifest": [
+            {
+                "repository_relative_path": "knowledge_base/primary/nano-puff-facts.md",
+                "knowledge_base": "primary",
+                "document_title": "Nano Puff facts",
+                "source_urls": [PRIMARY_URL],
+                "source_url_text": PRIMARY_URL,
+                "publisher": "Patagonia, US website",
+                "published_updated": "2026-10-23",
+                "accessed": "2026-10-23",
+                "evidence_type": "official statement",
+                "chunk_ids": ["primary-facts-1"],
+                "chunk_scores": [0.91],
+                "chunk_kinds": ["facts"],
+            },
+            {
+                "repository_relative_path": "knowledge_base/secondary/outdoor-context.md",
+                "knowledge_base": "secondary",
+                "document_title": "Outdoor context",
+                "source_urls": [SECONDARY_URL],
+                "source_url_text": SECONDARY_URL,
+                "publisher": "Example Publisher",
+                "published_updated": "2026-10-23",
+                "accessed": "2026-10-23",
+                "evidence_type": "analysis",
+                "chunk_ids": ["secondary-editorial-1"],
+                "chunk_scores": [0.63],
+                "chunk_kinds": ["editorial"],
+            },
+        ],
+        "ranked_candidates": {
+            "primary": [
+                {
+                    "rank": 1,
+                    "pool": "primary",
+                    "chunk_id": "primary-facts-1",
+                    "source_path": "knowledge_base/primary/nano-puff-facts.md",
+                    "knowledge_base": "primary",
+                    "chunk_kind": "facts",
+                    "similarity": 0.91,
+                    "document_title": "Nano Puff facts",
+                    "section_id": "facts",
+                    "section_heading_path": ["Relevant facts"],
+                    "section_line_range": [8, 12],
+                    "chunk_line_range": [8, 12],
+                },
+                {
+                    "rank": 2,
+                    "pool": "primary",
+                    "chunk_id": "primary-editorial-1",
+                    "source_path": "knowledge_base/primary/nano-puff-facts.md",
+                    "knowledge_base": "primary",
+                    "chunk_kind": "editorial",
+                    "similarity": 0.89,
+                    "document_title": "Nano Puff facts",
+                    "section_id": "editorial",
+                    "section_heading_path": ["Content implications"],
+                    "section_line_range": [14, 18],
+                    "chunk_line_range": [14, 18],
+                },
+            ],
+            "secondary": [
+                {
+                    "rank": 1,
+                    "pool": "secondary",
+                    "chunk_id": "secondary-editorial-1",
+                    "source_path": "knowledge_base/secondary/outdoor-context.md",
+                    "knowledge_base": "secondary",
+                    "chunk_kind": "editorial",
+                    "similarity": 0.63,
+                    "document_title": "Outdoor context",
+                    "section_id": "editorial",
+                    "section_heading_path": ["Editorial context"],
+                    "section_line_range": [6, 10],
+                    "chunk_line_range": [6, 10],
+                },
+            ],
+        },
+        "included_chunks": [
+            {
+                "rank": 1,
+                "pool": "primary",
+                "chunk_id": "primary-facts-1",
+                "source_path": "knowledge_base/primary/nano-puff-facts.md",
+                "knowledge_base": "primary",
+                "chunk_kind": "facts",
+                "similarity": 0.91,
+                "document_title": "Nano Puff facts",
+                "section_id": "facts",
+                "section_heading_path": ["Relevant facts"],
+                "section_line_range": [8, 12],
+                "chunk_line_range": [8, 12],
+                "source_urls": [PRIMARY_URL],
+                "source_url_text": PRIMARY_URL,
+                "publisher": "Patagonia, US website",
+                "published_updated": "2026-10-23",
+                "accessed": "2026-10-23",
+                "evidence_type": "official statement",
+                "chunk_text": "The internal chest pocket doubles as a stuffsack.",
+                "applicable_limitations": "Use only the verified packability fact.",
+            },
+            {
+                "rank": 1,
+                "pool": "secondary",
+                "chunk_id": "secondary-editorial-1",
+                "source_path": "knowledge_base/secondary/outdoor-context.md",
+                "knowledge_base": "secondary",
+                "chunk_kind": "editorial",
+                "similarity": 0.63,
+                "document_title": "Outdoor context",
+                "section_id": "editorial",
+                "section_heading_path": ["Editorial context"],
+                "section_line_range": [6, 10],
+                "chunk_line_range": [6, 10],
+                "source_urls": [SECONDARY_URL],
+                "source_url_text": SECONDARY_URL,
+                "publisher": "Example Publisher",
+                "published_updated": "2026-10-23",
+                "accessed": "2026-10-23",
+                "evidence_type": "analysis",
+                "chunk_text": "Use a confident, outdoorsy tone without overstating performance.",
+                "applicable_limitations": "Do not imply unsupported field-tested claims.",
+            },
+        ],
+        "retrieved_context": {
+            "primary": "### Primary retrieved context\nThe internal chest pocket doubles as a stuffsack.\n",
+            "secondary": "### Secondary retrieved context\nEditorial context from the companion source.\n",
+        },
+        "measurements": {
+            "primary_selected_count": 1,
+            "primary_fact_count": 1,
+            "secondary_selected_count": 1,
+            "secondary_fact_count": 0,
+            "included_source_count": 2,
+            "serialized_context_characters": 128,
+            "max_serialized_characters": 6000,
+        },
+    }
+
+
+
+class _FakeRagContextProvider:
+    def __init__(self, *, status_state: str = "ready") -> None:
+        self.status_state = status_state
+        self.describe_calls: list[dict[str, object]] = []
+        self.resolve_calls: list[dict[str, object]] = []
+        self.prompt_context = _make_rag_prompt_context()
+        self.retrieval_provenance = _make_rag_retrieval_provenance()
+
+    def describe_status(self, *, channel: str, campaign_brief: str, revision_feedback: str = ""):
+        self.describe_calls.append(
+            {
+                "channel": channel,
+                "campaign_brief": campaign_brief,
+                "revision_feedback": revision_feedback,
+            }
+        )
+        details = f"Index available for {channel}."
+        if self.status_state == "ready":
+            return rag_context_provider.RagIndexStatus(
+                state="ready",
+                message="RAG index ready.",
+                details=details,
+                index_path=REPO_ROOT / ".rag" / "rag_index.sqlite3",
+                corpus_snapshot_id="snapshot-123",
+                existing_index_matches=True,
+                existing_index_reason="ready",
+                embedding_model_id="text-embedding-3-small",
+            )
+        if self.status_state == "missing":
+            return rag_context_provider.RagIndexStatus(
+                state="missing",
+                message="No local RAG index was found at the configured path.",
+                details=details,
+                index_path=REPO_ROOT / ".rag" / "rag_index.sqlite3",
+                corpus_snapshot_id="snapshot-123",
+                existing_index_matches=None,
+                existing_index_reason="missing",
+                embedding_model_id="text-embedding-3-small",
+            )
+        if self.status_state == "stale":
+            return rag_context_provider.RagIndexStatus(
+                state="stale",
+                message="The local RAG index was built from an older source snapshot.",
+                details=details,
+                index_path=REPO_ROOT / ".rag" / "rag_index.sqlite3",
+                corpus_snapshot_id="snapshot-123",
+                existing_index_matches=False,
+                existing_index_reason="snapshot_mismatch",
+                embedding_model_id="text-embedding-3-small",
+            )
+        return rag_context_provider.RagIndexStatus(
+            state="incompatible",
+            message="The local RAG index does not match the configured embedding model or settings.",
+            details=details,
+            index_path=REPO_ROOT / ".rag" / "rag_index.sqlite3",
+            corpus_snapshot_id="snapshot-123",
+            existing_index_matches=False,
+            existing_index_reason="model_mismatch",
+            embedding_model_id="text-embedding-3-small",
+        )
+
+    def resolve(self, session, *, revision_feedback: str = "", current_draft=None):
+        self.resolve_calls.append(
+            {
+                "channel": session.channel,
+                "revision_feedback": revision_feedback,
+                "current_draft": current_draft,
+            }
+        )
+        if self.status_state != "ready":
+            raise rag_context_provider.RagContextBlockedError(f"blocked:{self.status_state}")
+        return pipeline.ResolvedGenerationContext(
+            context_mode="rag",
+            prompt_context=self.prompt_context,
+            retrieval_provenance=self.retrieval_provenance,
+        )
+
+
+
+def _fake_generated_text(*, instructions: str, user_input: str, max_output_tokens: int, timeout_seconds: float):
+    del instructions, max_output_tokens, timeout_seconds
+    assert "### Context mode" in user_input
+    assert "RAG primary evidence" in user_input
+    return pipeline.GeneratedText(
+        generated_text="### CHANNEL COPY\nGenerated RAG copy\n### REVIEWER NOTES\nGenerated RAG notes",
+        response_id="response-rag",
+        model="test-model",
+        elapsed_seconds=0.5,
+        usage=None,
+    )
+
+
+
+def test_rag_generation_and_revision_use_retrieval_context_and_feedback(monkeypatch) -> None:
+    provider = _FakeRagContextProvider()
+    real_generate_initial_draft = pipeline.generate_initial_draft
+    real_revise_current_draft = pipeline.revise_current_draft
+    prompt_texts: list[str] = []
+
+    def fake_generation_function(*, instructions, user_input, max_output_tokens, timeout_seconds):
+        del instructions, max_output_tokens, timeout_seconds
+        prompt_texts.append(user_input)
+        return pipeline.GeneratedText(
+            generated_text="### CHANNEL COPY\nGenerated RAG copy\n### REVIEWER NOTES\nGenerated RAG notes",
+            response_id="response-rag",
+            model="test-model",
+            elapsed_seconds=0.5,
+            usage=None,
+        )
+
+    def wrapped_generation(session, **kwargs):
+        return real_generate_initial_draft(session, generation_function=fake_generation_function, **kwargs)
+
+    def wrapped_revision(session, feedback, **kwargs):
+        return real_revise_current_draft(session, feedback, generation_function=fake_generation_function, **kwargs)
+
+    def fake_build_provider():
+        return provider
+
+
+    at = AppTest.from_file(REPO_ROOT / "app.py")
+    at.run()
+    _load_campaign(at)
+    session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    real_generate_initial_draft(session, context_provider=provider, generation_function=fake_generation_function)
+    at.run()
+    assert session.current_draft.context_mode == "rag"
+    assert session.current_draft.retrieval_provenance == provider.retrieval_provenance
+    assert provider.resolve_calls[0]["revision_feedback"] == ""
+    assert prompt_texts
+    assert "### Context mode\nrag" in prompt_texts[0]
+    assert "### Primary retrieved context" in prompt_texts[0]
+    assert "LEGACY FULL PRIMARY CONTEXT" not in prompt_texts[0]
+    assert any("Context mode: rag" in caption.value for caption in at.caption)
+    assert any("knowledge_base/primary/nano-puff-facts.md" in markdown.value for markdown in at.markdown)
+    assert any("primary-facts-1" in markdown.value for markdown in at.markdown)
+    assert any("budget_exceeded" in markdown.value for markdown in at.markdown)
+
+    real_revise_current_draft(session, "Mention the stuffsack feature.", context_provider=provider, generation_function=fake_generation_function)
+    at.run()
+    assert session.current_draft is not None
+    assert session.current_draft.revision_number == 2
+    assert session.current_draft.context_mode == "rag"
+    assert provider.resolve_calls[-1]["revision_feedback"].startswith("## Current channel copy")
+    assert "Mention the stuffsack feature." in provider.resolve_calls[-1]["revision_feedback"]
+    assert "### Secondary retrieved context" in prompt_texts[-1]
+    del at
+    gc.collect()
+
+
+
+@pytest.mark.parametrize("status_state", ["missing", "stale", "incompatible"])
+def test_rag_status_blocks_generation_before_paid_call_for_all_nonready_states(tmp_path, monkeypatch, status_state) -> None:
+    _patch_fake_generation(monkeypatch)
+    provider = _FakeRagContextProvider(status_state=status_state)
+    warnings: list[str] = []
+    generation_called = False
+
+    def fake_warning(message, **kwargs):
+        warnings.append(str(message))
+
+    def fail_generation(*args, **kwargs):
+        nonlocal generation_called
+        generation_called = True
+        raise AssertionError("generate_initial_draft should not run when RAG is unavailable")
+
+    import app as app_module
+    monkeypatch.setattr(app_module.st, "warning", fake_warning)
+    monkeypatch.setattr(app_module, "_build_rag_context_provider", lambda: provider)
+    monkeypatch.setattr(app_module, "generate_initial_draft", fail_generation)
+
+    at, _ = _make_app_test(monkeypatch, tmp_path, enable_source_management=True)
+    _load_campaign(at)
+    session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    app_module._run_generation(session)
+
+    assert generation_called is False
+    assert session.paid_attempts_used == 0
+    assert warnings
+    del at
+    gc.collect()
+
+
+
+def test_rag_revision_blocks_and_preserves_previous_work(tmp_path, monkeypatch) -> None:
+    provider = _FakeRagContextProvider()
+    real_generate_initial_draft = pipeline.generate_initial_draft
+
+    def fake_generation_function(*, instructions, user_input, max_output_tokens, timeout_seconds):
+        del instructions, max_output_tokens, timeout_seconds
+        return pipeline.GeneratedText(
+            generated_text="### CHANNEL COPY\nGenerated RAG copy\n### REVIEWER NOTES\nGenerated RAG notes",
+            response_id="response-rag",
+            model="test-model",
+            elapsed_seconds=0.5,
+            usage=None,
+        )
+
+    def wrapped_generation(session, **kwargs):
+        return real_generate_initial_draft(session, generation_function=fake_generation_function, **kwargs)
+
+
+    import app as app_module
+    import app as app_module
+    monkeypatch.setattr(app_module, "generate_initial_draft", wrapped_generation)
+    monkeypatch.setattr(app_module, "_build_rag_context_provider", lambda: provider)
+    at, _ = _make_app_test(monkeypatch, tmp_path, enable_source_management=True)
+    _load_campaign(at)
+    session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    real_generate_initial_draft(session, context_provider=provider, generation_function=fake_generation_function)
+    at.run()
+    draft_before = session.current_draft
+
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    at.checkbox(key=_approval_confirm_key(revision=1)).check().run()
+    at.button(key="approve_button").click().run()
+    approval_before = session.approval
+
+    import app as app_module
+
+    stale_provider = _FakeRagContextProvider(status_state="stale")
+    warnings: list[str] = []
+
+    def fake_warning(message, **kwargs):
+        warnings.append(str(message))
+
+    monkeypatch.setattr(app_module.st, "warning", fake_warning)
+    monkeypatch.setattr(app_module, "_build_rag_context_provider", lambda: stale_provider)
+
+    app_module._run_revision(session, "Make it more direct.")
+
+    assert session.current_draft is draft_before
+    assert session.approval is approval_before
+    assert session.paid_attempts_used == 1
+    assert warnings
+    assert any("older source snapshot" in warning or "RAG" in warning for warning in warnings)
+    del at
+    gc.collect()
+
+
+
+def test_legacy_draft_context_mode_defaults_to_full_corpus(monkeypatch) -> None:
+    def fake_generate(session, **kwargs):
+        draft = _fake_channel_draft(session.channel)
+        session.current_draft = draft
+        session.history = [draft]
+        return draft
+
+    monkeypatch.setattr(pipeline, "generate_initial_draft", fake_generate)
+
+    at = AppTest.from_file(REPO_ROOT / "app.py")
+    at.run()
+    _load_campaign(at)
+    _run_generation(at)
+
+    assert any("Context mode: full_corpus" in caption.value for caption in at.caption)
+    del at
+    gc.collect()
+
+
+def test_workspace_view_retains_selection_through_save_and_approval(monkeypatch) -> None:
+    def fake_generate(session, **kwargs):
+        draft = _fake_draft()
+        session.current_draft = draft
+        session.history = [draft]
+        return draft
+
+    def fake_export(session, **kwargs):
+        temp_dir = Path(tempfile.gettempdir()) / "patagonia-content-studio-tests"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        markdown_path = temp_dir / "workspace-view.md"
+        json_path = temp_dir / "workspace-view.json"
+        markdown_path.write_text(session.current_draft.channel_copy + "\n", encoding="utf-8")
+        json_path.write_text("{\"review\": true}\n", encoding="utf-8")
+        return SimpleNamespace(markdown_path=markdown_path, json_path=json_path)
+
+    monkeypatch.setattr(pipeline, "generate_initial_draft", fake_generate)
+    monkeypatch.setattr(pipeline, "export_approved_current_draft", fake_export)
+
+    at = AppTest.from_file(REPO_ROOT / "app.py")
+    at.run()
+    _load_campaign(at)
+    _run_generation(at)
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    at.text_area(key=_editor_copy_key()).set_value("Edited copy").run()
+    at.button(key="save_edit_button").click().run()
+
+    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    assert any("Saved revision: 2" in caption.value for caption in at.caption)
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
+
+    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    at.checkbox(key=_approval_confirm_key(revision=2)).check().run()
+    at.button(key="approve_button").click().run()
+
+    assert at.radio(key=_workspace_view_widget_key()).value == "Review"
+    assert len(at.download_button) == 2
+    del at
+    gc.collect()
+
+
+
+def test_workspace_view_is_preserved_per_channel(monkeypatch) -> None:
+    def fake_generate(session, **kwargs):
+        draft = _fake_channel_draft(session.channel)
+        session.current_draft = draft
+        session.history = [draft]
+        return draft
+
+    monkeypatch.setattr(pipeline, "generate_initial_draft", fake_generate)
+
+    at = AppTest.from_file(REPO_ROOT / "app.py")
+    at.run()
+    _load_campaign(at)
+    _run_generation(at)
+    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Review").run()
+
+    _load_campaign(at, channel="linkedin", brief=BRIEF)
+    assert at.radio(key=_workspace_view_widget_key("linkedin")).value == "Draft"
+
+    _load_campaign(at, channel="instagram", brief=BRIEF)
+    assert at.radio(key=_workspace_view_widget_key("instagram")).value == "Review"
     del at
     gc.collect()

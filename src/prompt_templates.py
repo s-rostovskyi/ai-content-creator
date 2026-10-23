@@ -5,9 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
-from typing import Literal
-
-from src.knowledge_base import ContextBundle
+from typing import Literal, Protocol, Sequence
 
 Channel = Literal["instagram", "linkedin", "email"]
 EXPECTED_PLACEHOLDERS = frozenset(
@@ -29,6 +27,12 @@ class TemplateValidationError(PromptTemplateError):
     """Raised when a channel template has an invalid placeholder schema."""
 
 
+class PromptContextBundle(Protocol):
+    primary_context: str
+    secondary_context: str
+    source_manifest: Sequence[object]
+
+
 @dataclass(frozen=True)
 class PromptParts:
     """The two messages needed by an OpenAI-compatible integration."""
@@ -40,8 +44,10 @@ class PromptParts:
 def build_prompt(
     channel: Channel | str,
     campaign_brief: str,
-    context: ContextBundle,
+    context: PromptContextBundle,
     feedback: str = "",
+    *,
+    context_mode: str = "full_corpus",
 ) -> PromptParts:
     """Build trusted instructions and separately delimited untrusted input."""
 
@@ -51,8 +57,12 @@ def build_prompt(
         raise PromptTemplateError("campaign_brief must be a non-empty string.")
     if not isinstance(feedback, str):
         raise PromptTemplateError("feedback must be a string.")
-    if not isinstance(context, ContextBundle):
-        raise PromptTemplateError("context must be a ContextBundle.")
+    if context_mode not in {"full_corpus", "rag"}:
+        raise PromptTemplateError("context_mode must be either 'full_corpus' or 'rag'.")
+    if not _is_prompt_context_bundle(context):
+        raise PromptTemplateError(
+            "context must provide primary_context, secondary_context, and source_manifest."
+        )
 
     template = _load_template(channel)
     _validate_template(template, channel)
@@ -62,6 +72,7 @@ def build_prompt(
         primary_context=context.primary_context,
         secondary_context=context.secondary_context,
         feedback=feedback,
+        context_mode=context_mode,
     )
     return PromptParts(trusted_instructions=trusted_instructions, user_input_text=user_input_text)
 
@@ -121,7 +132,7 @@ def _trusted_template_instructions(template: str, channel: str) -> str:
 
 
 def _render_user_input(
-    *, campaign_brief: str, primary_context: str, secondary_context: str, feedback: str
+    *, campaign_brief: str, primary_context: str, secondary_context: str, feedback: str, context_mode: str
 ) -> str:
     """Create one non-recursive rendering; braces in values remain ordinary text."""
 
@@ -130,11 +141,14 @@ def _render_user_input(
         "primary_context": primary_context,
         "secondary_context": secondary_context,
         "feedback": feedback,
+        "context_mode": context_mode,
     }
     rendered = (
         "## UNTRUSTED USER INPUT\n\n"
         "### Campaign brief\n"
         f"{fields['campaign_brief']}\n\n"
+        "### Context mode\n"
+        f"{fields['context_mode']}\n\n"
         "### Primary context\n"
         f"{fields['primary_context']}\n\n"
         "### Secondary context\n"
@@ -146,4 +160,20 @@ def _render_user_input(
     return rendered
 
 
-__all__ = ["Channel", "PromptParts", "PromptTemplateError", "TemplateValidationError", "build_prompt"]
+def _is_prompt_context_bundle(context: object) -> bool:
+    return all(
+        hasattr(context, attribute)
+        for attribute in ("primary_context", "secondary_context", "source_manifest")
+    ) and isinstance(getattr(context, "primary_context", None), str) and isinstance(
+        getattr(context, "secondary_context", None), str
+    )
+
+
+__all__ = [
+    "Channel",
+    "PromptContextBundle",
+    "PromptParts",
+    "PromptTemplateError",
+    "TemplateValidationError",
+    "build_prompt",
+]

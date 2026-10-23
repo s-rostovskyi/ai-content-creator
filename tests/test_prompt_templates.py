@@ -31,9 +31,18 @@ def test_build_prompt_supports_every_channel(channel: str) -> None:
 def test_default_feedback_is_empty_and_delimiters_are_present() -> None:
     result = prompt_templates.build_prompt("email", "A brief", make_context())
 
-    assert "### Reviewer feedback\n\n" in result.user_input_text
+    assert "### Context mode\nfull_corpus" in result.user_input_text
     assert result.user_input_text.endswith("End of untrusted input.")
     assert "untrusted" in result.trusted_instructions.lower()
+
+
+@pytest.mark.parametrize("context_mode", ["full_corpus", "rag"])
+def test_context_mode_label_is_rendered(context_mode: str) -> None:
+    result = prompt_templates.build_prompt("instagram", "A brief", make_context(), context_mode=context_mode)
+
+    assert f"### Context mode\n{context_mode}" in result.user_input_text
+
+
 
 
 def test_feedback_is_preserved_without_recursive_formatting() -> None:

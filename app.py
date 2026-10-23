@@ -33,6 +33,8 @@ from src.prompt_templates import PromptTemplateError
 from src.content_validation import format_validation_summary, validate_channel_format
 from src import source_registry
 from src import ui_state
+from src import rag_context_provider
+from src import rag_service
 
 REPO_ROOT = Path(__file__).resolve().parent
 load_dotenv(REPO_ROOT / ".env", override=False)
@@ -53,6 +55,11 @@ SOURCE_EDIT_SOURCE_KEY = "source_edit_source"
 SOURCE_EDIT_MARKDOWN_KEY = "source_edit_markdown"
 SOURCE_DELETE_SOURCE_KEY = "source_delete_source"
 SOURCE_DELETE_CONFIRM_KEY = "source_delete_confirm"
+RAG_INDEX_PREVIEW_STATE_KEY = "rag_index_preview_state"
+RAG_INDEX_BUILD_CONFIRM_KEY = "rag_index_build_confirm"
+RAG_INDEX_BUILD_ACTION_KEY = "rag_index_build"
+RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY = "rag_index_manage_sources_expanded"
+RAG_INDEX_BUILD_SUMMARY_KEY = "rag_index_build_summary"
 
 
 
@@ -103,6 +110,207 @@ def _render_header_image() -> None:
         unsafe_allow_html=True,
     )
     st.caption("AI-generated landscape")
+
+
+
+def _build_rag_context_provider() -> rag_context_provider.LiveRagContextProvider:
+    return rag_context_provider.LiveRagContextProvider(repo_root=REPO_ROOT)
+
+
+
+def _get_rag_index_status(session: PipelineSession, *, revision_feedback: str = "") -> rag_context_provider.RagIndexStatus:
+    provider = _build_rag_context_provider()
+    return provider.describe_status(
+        channel=session.channel,
+        campaign_brief=session.campaign_brief,
+        revision_feedback=revision_feedback,
+    )
+
+
+
+def _rag_status_action_hint(status: rag_context_provider.RagIndexStatus) -> str:
+    if status.state == "missing":
+        return "Build the local index with `python scripts/build_rag_index.py --live`."
+    if status.state == "stale":
+        return "Rebuild the local index with `python scripts/build_rag_index.py --live` after refreshing the corpus."
+    if status.state == "incompatible":
+        return "Set `OPENAI_EMBEDDING_MODEL` to match the local index or rebuild the index."
+    return ""
+
+
+
+def _rag_status_label(status: rag_context_provider.RagIndexStatus) -> str:
+    labels = {
+        "ready": "Ready",
+        "missing": "Missing",
+        "stale": "Stale",
+        "incompatible": "Incompatible model/configuration",
+    }
+    return labels.get(status.state, status.state)
+
+
+
+def _rag_status_is_ready(status: rag_context_provider.RagIndexStatus) -> bool:
+    return status.state == "ready"
+
+
+
+def _render_rag_index_status(status: rag_context_provider.RagIndexStatus) -> None:
+    st.caption(f"RAG index status: {_rag_status_label(status)}")
+    if status.state == "ready":
+        return
+    st.warning(status.message)
+    action_hint = _rag_status_action_hint(status)
+    if action_hint:
+        st.caption(action_hint)
+    if status.details:
+        st.caption(status.details)
+
+
+
+def _draft_context_mode(draft) -> str:
+    context_mode = getattr(draft, "context_mode", "full_corpus")
+    return context_mode if isinstance(context_mode, str) and context_mode else "full_corpus"
+
+
+
+def _draft_retrieval_provenance(draft):
+    provenance = getattr(draft, "retrieval_provenance", None)
+    return provenance if isinstance(provenance, dict) else None
+
+
+
+def _mapping_value(source, key: str, default=None):
+    if isinstance(source, dict):
+        return source.get(key, default)
+    return getattr(source, key, default)
+
+
+
+def _short_text_excerpt(text: str, *, limit: int = 180) -> str:
+    compact = " ".join(str(text).split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: max(limit - 3, 1)].rstrip() + "..."
+
+
+
+def _format_query_usage(usage) -> str:
+    if not isinstance(usage, dict):
+        return "none"
+    return f"prompt_tokens={usage.get('prompt_tokens')}, total_tokens={usage.get('total_tokens')}"
+
+
+
+def _render_rag_retrieval_details(draft) -> None:
+    provenance = _draft_retrieval_provenance(draft)
+    if not provenance:
+        st.caption("No retrieval provenance is attached to this draft.")
+        return
+
+    manifest = provenance.get("manifest", {})
+    measurements = provenance.get("measurements", {})
+    retrieval_settings = provenance.get("retrieval_settings", {})
+    included_chunks = tuple(provenance.get("included_chunks", ()))
+    ranked_candidates = provenance.get("ranked_candidates", {})
+    included_chunk_ids = {
+        str(_mapping_value(chunk, "chunk_id", ""))
+        for chunk in included_chunks
+        if _mapping_value(chunk, "chunk_id", "")
+    }
+    omission_reason_map: dict[str, str] = {}
+    for reason in manifest.get("omission_reasons", []):
+        if isinstance(reason, str) and ":" in reason:
+            chunk_id, omission_reason = reason.split(":", 1)
+            omission_reason_map[chunk_id] = omission_reason
+
+    st.caption(f"Corpus snapshot: {_mapping_value(provenance, 'corpus_snapshot_id', _mapping_value(manifest, 'corpus_snapshot_id', 'n/a'))}")
+    st.caption(
+        f"Requested embedding model: {_mapping_value(manifest, 'requested_model_id', 'n/a')} · "
+        f"Returned embedding model: {_mapping_value(manifest, 'returned_model_id', 'n/a')}"
+    )
+    st.caption(f"Query usage: {_format_query_usage(manifest.get('query_usage'))}")
+    query_latency = manifest.get("query_elapsed_seconds")
+    if isinstance(query_latency, (int, float)):
+        st.caption(f"Query latency: {query_latency:.3f} seconds")
+    st.caption(
+        "Context size: "
+        f"{measurements.get('serialized_context_characters', 0)} / {measurements.get('max_serialized_characters', 0)} characters"
+    )
+    st.caption(
+        "Selection counts: "
+        f"primary={measurements.get('primary_selected_count', 0)} "
+        f"(facts={measurements.get('primary_fact_count', 0)}), "
+        f"secondary={measurements.get('secondary_selected_count', 0)} "
+        f"(facts={measurements.get('secondary_fact_count', 0)}), "
+        f"distinct sources={measurements.get('included_source_count', 0)}"
+    )
+    if retrieval_settings:
+        st.caption(
+            "Retrieval settings: "
+            f"primary top-k {retrieval_settings.get('primary_top_k')} · "
+            f"secondary top-k {retrieval_settings.get('secondary_top_k')} · "
+            f"thresholds {retrieval_settings.get('primary_minimum_similarity')} / {retrieval_settings.get('secondary_minimum_similarity')}"
+        )
+
+    st.markdown("**Included chunks**")
+    if not included_chunks:
+        st.write("No chunks were included.")
+    for chunk in included_chunks:
+        source_path = str(_mapping_value(chunk, "source_path", _mapping_value(chunk, "repository_relative_path", "")))
+        chunk_id = str(_mapping_value(chunk, "chunk_id", ""))
+        knowledge_base = str(_mapping_value(chunk, "knowledge_base", ""))
+        chunk_kind = str(_mapping_value(chunk, "chunk_kind", ""))
+        similarity = _mapping_value(chunk, "similarity", 0.0)
+        try:
+            similarity_text = f"{float(similarity):.6f}"
+        except (TypeError, ValueError):
+            similarity_text = str(similarity)
+        st.markdown(f"- `{source_path}` · `{chunk_id}` · {knowledge_base} · {chunk_kind} · score {similarity_text}")
+        heading_path = _mapping_value(chunk, "section_heading_path", ())
+        if heading_path:
+            if isinstance(heading_path, (list, tuple)):
+                heading_text = " / ".join(str(part) for part in heading_path)
+            else:
+                heading_text = str(heading_path)
+            st.caption(f"Heading path: {heading_text}")
+        line_range = _mapping_value(chunk, "chunk_line_range", ())
+        if isinstance(line_range, (list, tuple)) and len(line_range) == 2:
+            st.caption(f"Chunk lines: {line_range[0]}-{line_range[1]}")
+        limitations = str(_mapping_value(chunk, "applicable_limitations", "")).strip()
+        if limitations:
+            st.caption(f"Limitations: {limitations}")
+        excerpt = _short_text_excerpt(_mapping_value(chunk, "chunk_text", ""))
+        if excerpt:
+            st.write(excerpt)
+
+    omitted_candidates: list[str] = []
+    for pool_name, candidates in ranked_candidates.items():
+        if not isinstance(candidates, (list, tuple)):
+            continue
+        for candidate in candidates:
+            chunk_id = str(_mapping_value(candidate, "chunk_id", ""))
+            if not chunk_id or chunk_id in included_chunk_ids:
+                continue
+            source_path = str(_mapping_value(candidate, "source_path", _mapping_value(candidate, "repository_relative_path", "")))
+            chunk_kind = str(_mapping_value(candidate, "chunk_kind", ""))
+            similarity = _mapping_value(candidate, "similarity", 0.0)
+            try:
+                similarity_text = f"{float(similarity):.6f}"
+            except (TypeError, ValueError):
+                similarity_text = str(similarity)
+            reason = omission_reason_map.get(chunk_id, "ranked_out")
+            omitted_candidates.append(
+                f"- `{source_path}` · `{chunk_id}` · {pool_name} · {chunk_kind} · score {similarity_text} · {reason}"
+            )
+    if omitted_candidates:
+        st.markdown("**Ranked but omitted**")
+        for line in omitted_candidates:
+            st.markdown(line)
+
+    omission_reasons = tuple(manifest.get("omission_reasons", ()))
+    if omission_reasons:
+        st.caption("Omission reasons: " + ", ".join(str(reason) for reason in omission_reasons))
 
 
 def _refresh_source_state() -> bool:
@@ -201,11 +409,272 @@ def _apply_prepared_source_operation(prepared_operation, *, action: str):
     return source_registry.apply_prepared_source_operation(prepared_operation, REPO_ROOT)
 
 
+def _rag_index_preview_signature(plan) -> tuple[str, str, str, int, int]:
+    return (
+        str(plan.index_path),
+        plan.corpus_snapshot.snapshot_id,
+        plan.embedding_model_id or "unresolved",
+        plan.chunking_policy.max_chunk_characters,
+        plan.chunking_policy.overlap_characters,
+    )
+
+
+
+def _rag_index_status_from_build_plan(plan) -> rag_context_provider.RagIndexStatus:
+    if plan.existing_index_matches is True:
+        state = "ready"
+        message = "RAG index ready."
+    elif plan.existing_index_reason == "missing":
+        state = "missing"
+        message = f"No local RAG index was found at {plan.index_path}."
+    elif plan.existing_index_reason == "snapshot_mismatch":
+        state = "stale"
+        message = "The local RAG index was built from an older source snapshot."
+    else:
+        state = "incompatible"
+        message = "The local RAG index does not match the configured embedding model or settings."
+
+    model_text = plan.embedding_model_id or "unresolved"
+    details = (
+        f"Index: {plan.index_path} | Corpus snapshot: {plan.corpus_snapshot.snapshot_id} | "
+        f"Model: {model_text} | Existing index: {plan.existing_index_reason}"
+    )
+    return rag_context_provider.RagIndexStatus(
+        state=state,
+        message=message,
+        details=details,
+        index_path=plan.index_path,
+        corpus_snapshot_id=plan.corpus_snapshot.snapshot_id,
+        existing_index_matches=plan.existing_index_matches,
+        existing_index_reason=plan.existing_index_reason,
+        embedding_model_id=plan.embedding_model_id,
+    )
+
+
+
+def _render_rag_index_preview_details(plan) -> None:
+    st.caption(f"Corpus snapshot: {plan.corpus_snapshot.snapshot_id}")
+    st.caption(f"Chunk count: {plan.chunk_count}")
+    st.caption(
+        f"Reusable embeddings: {plan.reusable_embedding_count} | Missing embeddings: {plan.pending_embedding_count}"
+    )
+    if plan.planned_batches:
+        st.caption(f"Planned batches: {len(plan.planned_batches)}")
+        for index, batch in enumerate(plan.planned_batches, start=1):
+            st.caption(
+                f"Batch {index}: {len(batch.chunk_ids)} chunks | {batch.total_input_characters} characters"
+            )
+    else:
+        st.caption("Planned batches: 0")
+
+
+
+def _rag_index_usage_summary(result) -> dict[str, int] | None:
+    usage_batches = [batch for batch in result.completed_batches if getattr(batch, "usage", None) is not None]
+    if not usage_batches:
+        return None
+    return {
+        "prompt_tokens": sum(batch.usage.prompt_tokens for batch in usage_batches),
+        "total_tokens": sum(batch.usage.total_tokens for batch in usage_batches),
+    }
+
+
+
+def _rag_index_build_summary(*, status: rag_context_provider.RagIndexStatus, result=None, plan=None, error_message: str | None = None) -> dict[str, object]:
+    summary: dict[str, object] = {
+        "resulting_index_state": status.state,
+        "resulting_index_status": _rag_status_label(status),
+        "resulting_index_message": status.message,
+        "index_path": str(status.index_path),
+        "corpus_snapshot_id": status.corpus_snapshot_id,
+    }
+    if result is not None:
+        summary.update(
+            {
+                "outcome": "success",
+                "embedded_chunk_count": result.embedded_chunk_count,
+                "reused_embedding_count": result.reused_embedding_count,
+                "actual_api_batch_count": len(result.completed_batches),
+                "elapsed_seconds": result.build_elapsed_seconds,
+                "usage": _rag_index_usage_summary(result),
+            }
+        )
+    elif plan is not None:
+        summary.update(
+            {
+                "outcome": "failure",
+                "embedded_chunk_count": None,
+                "reused_embedding_count": None,
+                "actual_api_batch_count": None,
+                "elapsed_seconds": None,
+                "usage": None,
+                "planned_batch_count": len(plan.planned_batches),
+            }
+        )
+    if error_message:
+        summary["error_message"] = error_message
+    return summary
+
+
+
+def _render_rag_index_build_summary(summary: dict[str, object]) -> None:
+    outcome = str(summary.get("outcome", "unknown"))
+    st.markdown("##### Last build result")
+    st.caption(f"Outcome: {outcome}")
+    st.caption(f"Corpus snapshot: {summary.get('corpus_snapshot_id', 'unknown')}")
+    embedded_chunk_count = summary.get("embedded_chunk_count")
+    reused_embedding_count = summary.get("reused_embedding_count")
+    actual_api_batch_count = summary.get("actual_api_batch_count")
+    elapsed_seconds = summary.get("elapsed_seconds")
+    usage = summary.get("usage")
+    if embedded_chunk_count is None or reused_embedding_count is None or actual_api_batch_count is None or elapsed_seconds is None:
+        st.caption("Embedded chunks: unavailable | Reused chunks: unavailable")
+        st.caption("Actual API batches: unavailable | Elapsed: unavailable")
+    else:
+        st.caption(f"Embedded chunks: {embedded_chunk_count} | Reused chunks: {reused_embedding_count}")
+        st.caption(f"Actual API batches: {actual_api_batch_count} | Elapsed: {elapsed_seconds:.3f}s")
+    if isinstance(usage, dict):
+        st.caption(f"Usage: prompt_tokens={usage['prompt_tokens']} | total_tokens={usage['total_tokens']}")
+    elif outcome == "success":
+        st.caption("Usage: none")
+    st.caption(f"Resulting index status: {summary.get('resulting_index_status', 'unknown')}")
+    if summary.get("error_message"):
+        st.caption(f"Error: {summary['error_message']}")
+
+
+
+def _store_rag_index_build_summary(*, status: rag_context_provider.RagIndexStatus, result=None, plan=None, error_message: str | None = None) -> None:
+    st.session_state[RAG_INDEX_BUILD_SUMMARY_KEY] = _rag_index_build_summary(
+        status=status,
+        result=result,
+        plan=plan,
+        error_message=error_message,
+    )
+
+
+
+def _keep_manage_sources_expanded() -> None:
+    st.session_state[RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] = True
+
+
+
+def _render_rag_index_build_result(result) -> None:
+    st.caption(f"Embedded chunks: {result.embedded_chunk_count} | Reused chunks: {result.reused_embedding_count}")
+    st.caption(f"Batches: {len(result.completed_batches)} | Elapsed: {result.build_elapsed_seconds:.3f}s")
+    usage_batches = [batch for batch in result.completed_batches if getattr(batch, "usage", None) is not None]
+    if not usage_batches:
+        st.caption("Usage: none")
+        return
+    prompt_tokens = sum(batch.usage.prompt_tokens for batch in usage_batches)
+    total_tokens = sum(batch.usage.total_tokens for batch in usage_batches)
+    st.caption(f"Usage: prompt_tokens={prompt_tokens} | total_tokens={total_tokens}")
+
+
+
+def _show_rag_index_error(exc: Exception, *, action: str) -> None:
+    message = str(exc).strip() or exc.__class__.__name__
+    st.error(f"RAG index {action} failed: {message}")
+    st.caption("Existing index and campaign work were preserved.")
+
+
+
+def _run_rag_index_build(plan) -> None:
+    _keep_manage_sources_expanded()
+    if not SOURCE_MANAGEMENT_ENABLED:
+        raise rag_service.RagServiceError("Source management is disabled in this deployment. Index building is unavailable.")
+
+    preview_state = st.session_state.get(RAG_INDEX_PREVIEW_STATE_KEY)
+    signature = _rag_index_preview_signature(plan)
+    if not isinstance(preview_state, dict) or preview_state.get("signature") != signature:
+        st.warning("The index update preview is stale. Preview again before building the index.")
+        st.session_state[RAG_INDEX_BUILD_CONFIRM_KEY] = False
+        return
+
+    if not st.session_state.get(RAG_INDEX_BUILD_CONFIRM_KEY, False):
+        st.warning("Confirm the charge notice before building the index.")
+        return
+
+    ui_state.set_action_in_progress(st.session_state, RAG_INDEX_BUILD_ACTION_KEY, True)
+    preview_plan = preview_state["plan"]
+    try:
+        with st.spinner("Building RAG index..."):
+            result = rag_service.build_rag_index(repo_root=REPO_ROOT)
+    except Exception as exc:  # noqa: BLE001
+        _store_rag_index_build_summary(
+            status=_rag_index_status_from_build_plan(plan),
+            plan=preview_plan,
+            error_message=str(exc).strip() or exc.__class__.__name__,
+        )
+        _show_rag_index_error(exc, action="building the RAG index")
+        return
+    finally:
+        ui_state.set_action_in_progress(st.session_state, RAG_INDEX_BUILD_ACTION_KEY, False)
+        st.session_state[RAG_INDEX_BUILD_CONFIRM_KEY] = False
+
+    post_build_status = _rag_index_status_from_build_plan(rag_service.plan_rag_index_build(repo_root=REPO_ROOT))
+    _store_rag_index_build_summary(status=post_build_status, result=result)
+    st.success("RAG index updated.")
+    _render_rag_index_build_summary(st.session_state[RAG_INDEX_BUILD_SUMMARY_KEY])
+
+
+
+def _render_rag_index_refresh_panel(plan) -> None:
+    st.markdown("##### RAG index refresh")
+    st.caption(
+        "Preview the current corpus snapshot offline before building the index. Previewing does not create an API client."
+    )
+    if st.button("Preview index update", key="rag_index_preview_button", use_container_width=True):
+        _keep_manage_sources_expanded()
+        st.session_state[RAG_INDEX_PREVIEW_STATE_KEY] = {
+            "signature": _rag_index_preview_signature(plan),
+            "plan": plan,
+        }
+        st.session_state[RAG_INDEX_BUILD_CONFIRM_KEY] = False
+        st.success("Index update preview ready.")
+
+    summary_state = st.session_state.get(RAG_INDEX_BUILD_SUMMARY_KEY)
+    if isinstance(summary_state, dict):
+        _render_rag_index_build_summary(summary_state)
+
+    preview_state = st.session_state.get(RAG_INDEX_PREVIEW_STATE_KEY)
+    if preview_state is None:
+        st.caption("Preview the snapshot to review reusable embeddings, missing embeddings, and planned batches.")
+        return
+
+    current_signature = _rag_index_preview_signature(plan)
+    if preview_state.get("signature") != current_signature:
+        st.warning(
+            "The sources or embedding configuration changed after the last preview. Preview again before building the index."
+        )
+        st.session_state[RAG_INDEX_BUILD_CONFIRM_KEY] = False
+        _keep_manage_sources_expanded()
+        return
+
+    preview_plan = preview_state["plan"]
+    _render_rag_index_preview_details(preview_plan)
+    st.caption("Building may incur embedding API charges.")
+    confirmed = st.checkbox(
+        "I understand this build may incur embedding API charges.",
+        key=RAG_INDEX_BUILD_CONFIRM_KEY,
+    )
+    build_disabled = ui_state.action_in_progress(st.session_state, RAG_INDEX_BUILD_ACTION_KEY) or not confirmed
+    st.button(
+        "Build/update index",
+        key="rag_index_build_button",
+        use_container_width=True,
+        disabled=build_disabled,
+        on_click=_run_rag_index_build,
+        args=(preview_plan,),
+    )
+
+
 def _render_manage_sources_area(source_records) -> None:
     source_records = tuple(source_records or ())
     primary_records, secondary_records = _source_records_by_knowledge_base(source_records)
+    plan = rag_service.plan_rag_index_build(repo_root=REPO_ROOT)
+    status = _rag_index_status_from_build_plan(plan)
 
-    with st.expander("Manage sources", expanded=False):
+    with st.expander("Manage sources", expanded=st.session_state.get(RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY, False)):
         st.caption("Source management is a deployment safeguard, not user authentication.")
         if not ui_state.source_inventory_is_current(st.session_state):
             error_message = ui_state.get_source_inventory_error(st.session_state)
@@ -219,11 +688,14 @@ def _render_manage_sources_area(source_records) -> None:
         _render_source_inventory_group(primary_records)
         st.markdown(f"**Secondary sources ({len(secondary_records)})**")
         _render_source_inventory_group(secondary_records)
+        _render_rag_index_status(status)
 
         if not SOURCE_MANAGEMENT_ENABLED:
             st.info("Source management is read-only in this deployment. Set SOURCE_MANAGEMENT_ENABLED=true to allow validated mutations.")
             return
 
+        st.divider()
+        _render_rag_index_refresh_panel(plan)
         st.divider()
         create_tab, edit_tab, delete_tab = st.tabs(["Create", "Edit", "Delete"])
         with create_tab:
@@ -643,12 +1115,24 @@ def _render_workspace() -> None:
         st.write("Brief:")
         st.write(session.campaign_brief)
 
-    draft_tab, edit_tab, review_tab = st.tabs(["Draft", "Edit", "Review"])
-    with review_tab:
+    workspace_view_key = ui_state.workspace_view_key(session.channel)
+    workspace_view_widget_key = ui_state.workspace_view_widget_key(session.channel)
+    if st.session_state.get(workspace_view_key) not in ui_state.WORKSPACE_VIEWS:
+        st.session_state[workspace_view_key] = ui_state.DEFAULT_WORKSPACE_VIEW
+    if st.session_state.get(workspace_view_widget_key) not in ui_state.WORKSPACE_VIEWS:
+        st.session_state[workspace_view_widget_key] = st.session_state[workspace_view_key]
+    workspace_view = st.radio(
+        "Workspace view",
+        options=ui_state.WORKSPACE_VIEWS,
+        horizontal=True,
+        key=workspace_view_widget_key,
+    )
+    ui_state.set_workspace_view(st.session_state, session.channel, workspace_view)
+    if workspace_view == "Review":
         _render_review_panel(session)
-    with edit_tab:
+    elif workspace_view == "Edit":
         _render_manual_editor(session)
-    with draft_tab:
+    else:
         _render_draft_panel(session)
 
 
@@ -660,6 +1144,10 @@ def _render_draft_panel(session: PipelineSession) -> None:
 
     st.markdown("##### Publishable copy")
     st.markdown(draft.channel_copy)
+    st.caption(f"Context mode: {_draft_context_mode(draft)}")
+    if _draft_context_mode(draft) == "rag":
+        with st.expander("Retrieval details", expanded=False):
+            _render_rag_retrieval_details(draft)
 
     with st.expander("Reviewer notes", expanded=False):
         st.markdown(draft.reviewer_notes or "_No reviewer notes supplied._")
@@ -673,7 +1161,6 @@ def _render_draft_panel(session: PipelineSession) -> None:
                 st.json(draft.response_metadata.usage.__dict__)
 
     _render_format_feedback(draft, location="draft")
-
 def _render_review_panel(session: PipelineSession) -> None:
     draft = session.current_draft
     if draft is None:
@@ -682,6 +1169,7 @@ def _render_review_panel(session: PipelineSession) -> None:
 
     _render_revision_form(session)
     st.caption(f"Remaining generation attempts: {session.remaining_paid_attempts} of {session.max_paid_attempts}")
+    st.caption(f"Context mode: {_draft_context_mode(draft)}")
     _render_format_feedback(draft, location="approval")
 
     with st.expander("Sources", expanded=False):
@@ -697,10 +1185,11 @@ def _render_review_panel(session: PipelineSession) -> None:
                     for url in entry.source_urls:
                         st.write(url)
 
+    if _draft_context_mode(draft) == "rag":
+        with st.expander("Retrieval details", expanded=False):
+            _render_rag_retrieval_details(draft)
+
     _render_approval_and_downloads(session)
-
-
-
 def _render_campaign_controls(context_bundle, current_source_signature) -> None:
     st.markdown("#### Campaign")
     with st.form("campaign-form", clear_on_submit=False):
@@ -863,30 +1352,46 @@ def _confirm_campaign_replacement(context_bundle, current_source_signature) -> N
 def _render_generation_controls(session: PipelineSession) -> None:
     source_signature = ui_state.get_source_inventory_signature(st.session_state)
     source_stale = ui_state.campaign_sources_are_stale(st.session_state, session.channel, source_signature)
+    rag_status = _get_rag_index_status(session)
+    _render_rag_index_status(rag_status)
     if source_stale:
         st.warning("This campaign was prepared from an older source snapshot. Refresh the campaign from current sources before generating or revising.")
+    generate_disabled = (
+        session.current_draft is not None
+        or source_stale
+        or not _rag_status_is_ready(rag_status)
+        or ui_state.action_in_progress(st.session_state, "generation")
+        or ui_state.action_in_progress(st.session_state, "revision")
+    )
     if st.button(
         "Generate draft",
         key="generate_button",
         type="primary",
         use_container_width=True,
-        disabled=session.current_draft is not None or source_stale,
+        disabled=generate_disabled,
     ):
         _run_generation(session)
-
-
 def _run_generation(session: PipelineSession) -> None:
     source_signature = ui_state.get_source_inventory_signature(st.session_state)
     if ui_state.campaign_sources_are_stale(st.session_state, session.channel, source_signature):
         st.warning("This campaign was prepared from an older source snapshot. Refresh the campaign from current sources before generating or revising.")
         return
 
+    rag_status = _get_rag_index_status(session)
+    if not _rag_status_is_ready(rag_status):
+        _render_rag_index_status(rag_status)
+        return
+
+    provider = _build_rag_context_provider()
+    ui_state.set_action_in_progress(st.session_state, "generation", True)
     try:
         with st.spinner("Generating draft..."):
-            draft = generate_initial_draft(session)
+            draft = generate_initial_draft(session, context_provider=provider)
     except (ContentPipelineError, OpenAIIntegrationError, PromptTemplateError) as exc:
         _show_error(exc)
         return
+    finally:
+        ui_state.set_action_in_progress(st.session_state, "generation", False)
 
     session.approval = None
     ui_state.queue_editor_sync(
@@ -905,12 +1410,21 @@ def _run_revision(session: PipelineSession, feedback: str) -> None:
         st.warning("This campaign was prepared from an older source snapshot. Refresh the campaign from current sources before generating or revising.")
         return
 
+    rag_status = _get_rag_index_status(session, revision_feedback=feedback)
+    if not _rag_status_is_ready(rag_status):
+        _render_rag_index_status(rag_status)
+        return
+
+    provider = _build_rag_context_provider()
+    ui_state.set_action_in_progress(st.session_state, "revision", True)
     try:
         with st.spinner("Revising draft..."):
-            draft = revise_current_draft(session, feedback)
+            draft = revise_current_draft(session, feedback, context_provider=provider)
     except (ContentPipelineError, OpenAIIntegrationError, PromptTemplateError) as exc:
         _show_error(exc)
         return
+    finally:
+        ui_state.set_action_in_progress(st.session_state, "revision", False)
 
     session.approval = None
     ui_state.queue_editor_sync(
@@ -921,8 +1435,6 @@ def _run_revision(session: PipelineSession, feedback: str) -> None:
     )
     ui_state.clear_review_state(st.session_state, session.channel)
     st.success("Draft revised.")
-
-
 def _render_revision_form(session: PipelineSession) -> None:
     st.markdown("##### Revision")
     ui_state.hydrate_revision_feedback(st.session_state, session.channel)
@@ -937,10 +1449,18 @@ def _render_revision_form(session: PipelineSession) -> None:
 
     source_signature = ui_state.get_source_inventory_signature(st.session_state)
     source_stale = ui_state.campaign_sources_are_stale(st.session_state, session.channel, source_signature)
+    rag_status = _get_rag_index_status(session, revision_feedback=st.session_state[ui_state.revision_feedback_key(session.channel)])
+    _render_rag_index_status(rag_status)
     if source_stale:
         st.warning("This campaign was prepared from an older source snapshot. Refresh the campaign from current sources before generating or revising.")
 
-    if not st.button("Revise draft", key="revise_button", use_container_width=True, disabled=source_stale):
+    revision_disabled = (
+        source_stale
+        or not _rag_status_is_ready(rag_status)
+        or ui_state.action_in_progress(st.session_state, "generation")
+        or ui_state.action_in_progress(st.session_state, "revision")
+    )
+    if not st.button("Revise draft", key="revise_button", use_container_width=True, disabled=revision_disabled):
         return
 
     feedback = st.session_state[ui_state.revision_feedback_key(session.channel)]
@@ -948,8 +1468,6 @@ def _render_revision_form(session: PipelineSession) -> None:
         st.warning("Enter feedback before requesting a revision.")
         return
     _run_revision(session, feedback)
-
-
 def _render_manual_editor(session: PipelineSession) -> None:
     ui_state.apply_pending_editor_sync(st.session_state, session.channel)
     ui_state.hydrate_editor_buffers(st.session_state, session.channel)
@@ -973,6 +1491,8 @@ def _render_manual_editor(session: PipelineSession) -> None:
     )
 
     dirty = ui_state.editor_is_dirty(st.session_state, session.channel)
+    if session.current_draft is not None:
+        st.caption(f"Saved revision: {session.current_draft.revision_number}")
     if dirty:
         st.warning("Unsaved edits are pending. Save them before approving or downloading.")
 
