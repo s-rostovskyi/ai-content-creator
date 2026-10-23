@@ -37,14 +37,14 @@ OPENAI_EMBEDDING_MODEL=
 SOURCE_MANAGEMENT_ENABLED=
 ```
 
-Required configuration names:
+Application configuration names:
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
 - `OPENAI_EMBEDDING_MODEL`
 - `SOURCE_MANAGEMENT_ENABLED`
 
-`OPENAI_API_KEY` is the application key used by the OpenAI client inside this repo. It is separate from Codex authentication and should stay local. `OPENAI_MODEL` selects the chat model at runtime. `OPENAI_EMBEDDING_MODEL` selects the embedding model for RAG indexing and retrieval. `SOURCE_MANAGEMENT_ENABLED` keeps the source manager read-only unless it is set to `true`.
+`OPENAI_API_KEY` is the application key used by the OpenAI client inside this repo. It is separate from Codex authentication and should stay local. `OPENAI_MODEL` selects the generation model at runtime. `OPENAI_EMBEDDING_MODEL` selects the embedding model for RAG indexing and retrieval. `SOURCE_MANAGEMENT_ENABLED` is optional and keeps the source manager read-only unless it is exactly `true`. The repo-root `.env` is loaded with `override=False`: existing process environment values take precedence. Restart Streamlit after changing local credentials or startup configuration.
 
 ## Run the app
 
@@ -66,7 +66,7 @@ Run the CLI in live review mode after configuration is in place:
 python -m src.main --channel instagram --brief "..."
 ```
 
-The CLI uses the same pipeline as the UI. Live mode shows the draft, reviewer notes, and explicit review actions; quit never implies approval or export.
+The CLI shares pipeline primitives with the UI, but `src.main` currently uses full-corpus context without the RAG provider. Streamlit uses explicit RAG retrieval; the separate retrieval CLI below exercises retrieval without content generation. CLI live mode shows the draft, reviewer notes, and explicit review actions; quit never implies approval or export.
 
 ## RAG workflow
 
@@ -141,18 +141,37 @@ python -m pytest -q -p no:cacheprovider --basetemp <fresh temp dir>
 - Earlier retrieval evidence: [docs/evidence/rag/packability-fixed-20261023T112803662Z.json](docs/evidence/rag/packability-fixed-20261023T112803662Z.json)
 - Generic-versus-contextual comparison report: [docs/evaluation/generic-vs-contextual-results.md](docs/evaluation/generic-vs-contextual-results.md)
 - Email counting clarification: [docs/evaluation/email-counting-clarification.md](docs/evaluation/email-counting-clarification.md)
-- Scorecard for reviewer scoring: [docs/evaluation/generic-vs-contextual-scorecard.md](docs/evaluation/generic-vs-contextual-scorecard.md)
+- Independent non-RAG ratings by Sandra, with rationale and original Trello comment: [evaluation scorecard](docs/evaluation/generic-vs-contextual-scorecard.md). Martha's independent ratings remain pending.
+- Incremental source/index refresh verification: [source-refresh-verification.md](docs/evidence/rag/source-refresh-verification.md)
 
 Observed format issues in the preserved comparison report:
 - Generic LinkedIn is below the 120-word minimum.
 - Both email variants remain below the 150-word body minimum under the clarified counting convention.
-- The comparison is one qualitative sample per channel; it does not prove uniqueness or independent review completion.
-- `docs/evidence/rag/acceptance/README.md` records one owner-reviewed Instagram generation path only; other-channel RAG acceptance, live RAG revision, and independent reviews remain pending where applicable.
+- The comparison is one qualitative sample per condition and channel; it does not prove uniqueness or complete all independent reviews.
+
+
+## Preserved RAG owner checks
+
+The [RAG acceptance record](docs/evidence/rag/acceptance/README.md) preserves exact approved Markdown/JSON pairs, copy fingerprints, retrieval provenance, model usage and limitations:
+
+| Channel | Preserved owner workflow | Result and boundary |
+|---|---|---|
+| Instagram | RAG generation -> manual notes correction -> approval -> export | Revision 3; earlier corpus snapshot `93499726...`. This is not a live model-revision test. |
+| LinkedIn | RAG generation -> live RAG revision using prior copy and human feedback -> approval -> export | Revision 2; 129 words meets the channel's 120-200 range but misses the feedback request of 130-160 by one word. The final revision's metadata is preserved. |
+| Email newsletter | RAG generation -> manual copy/notes correction -> approval -> export | Revision 3; subject 39/50 characters, preheader 63/90, final body 157 words. Initial generated body was 140 words and failed the minimum; compliance was achieved through human editing. |
+
+LinkedIn and email use the corrected corpus snapshot `4984775f...`; Instagram remains tied to its recorded earlier snapshot. Full snapshot identities and measurements are in the linked acceptance record. These examples demonstrate owner-run workflows across separate runs/snapshots, not a controlled RAG benchmark, independent all-channel acceptance, or proof of improved accuracy/cost.
+
+Reviewer notes required correction of unused facts and source URLs. The retrieval source manifest records context supplied to the model, which can include sources not used in the final copy; it is not a list of claims actually made. Human review remains necessary.
+
+The incremental index refresh reused 17 embeddings and recomputed 3 in one batch (1634 tokens), then the owner confirmed Ready and an offline plan of 20 reusable/0 missing/0 batches. The [refresh record](docs/evidence/rag/source-refresh-verification.md) preserves its scope; historical evidence was not rewritten.
+
+The stale Review display immediately after Revise was fixed by reading the current draft after processing the revision form. Offline regressions cover immediate revision/provenance consistency, one revision operation, and failure preservation. A new live browser revision solely to retest this fix has not been performed; native rerenders may still reset scroll position.
 
 ## Status
 
 Implemented behavior includes Markdown ingestion, deterministic context assembly, OpenAI integration, channel templates, CLI dry-run/live review, Streamlit drafting and revision, validation, approval, export, guarded source CRUD, explicit RAG index preview/build, retrieval-backed context, and preserved evaluation artifacts.
 
-Latest reported offline suite: 238 passed, 1 skipped.
+Latest independently executed offline suite after the Review-panel revision fix: **239 passed, 1 skipped** in 121.56 seconds. The skipped test requires Windows symlink creation unavailable in the verification environment. The focused source-discovery/registry run was separately reported as 18 passed, 1 skipped; these are distinct runs, not additive totals.
 
 Not deployed: there has been no production deployment from this repo. Remaining course work, if any, should be tracked on the board rather than implied by the codebase.

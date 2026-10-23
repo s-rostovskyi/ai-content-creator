@@ -26,6 +26,7 @@
 - RAG acceptance evidence: `docs/evidence/rag/acceptance/README.md`.
 - Earlier retrieval evidence: `docs/evidence/rag/packability-20261023T104924560Z.json` and `docs/evidence/rag/packability-fixed-20261023T112803662Z.json`.
 - Generic-versus-contextual comparison: `docs/evaluation/generic-vs-contextual-results.md` and `docs/evaluation/email-counting-clarification.md`.
+- Sandra's independent ratings are recorded in `docs/evaluation/generic-vs-contextual-scorecard.md` for the historical six-response non-RAG run; Martha's separate ratings remain pending.
 - The comparison artifacts remain historical non-RAG evidence, not acceptance for the new RAG path.
 
 ## Measurements from the current implementation
@@ -60,9 +61,13 @@ These values are measured results from the current implementation, not promised 
 ## Current status
 - The implemented RAG path is local, explicit, and gated by an index readiness check.
 - The historical full-context backend remains available for comparison and evaluation.
-- One live owner-reviewed Instagram RAG export path is evidenced; other-channel RAG acceptance, live RAG revision, and independent reviews remain pending where applicable.
+- Owner-reviewed RAG examples now exist for Instagram, LinkedIn, and email across different runs and corpus snapshots. LinkedIn demonstrates one live RAG revision using prior copy and human feedback, and email records a failed 140-word generated body followed by manual editing to an approved 157-word body.
+- These are owner checks, not independent all-channel peer acceptance or a controlled RAG benchmark.
+- Streamlit uses the RAG provider; `src.main` still uses full-corpus context for the historical CLI path.
+- The incremental source refresh reused 17 embeddings and recomputed 3, advancing from corpus snapshot `9349972665c952782b93afde17efc583f4f577019709d36d43b35d0523cf1e20` to `4984775f808b507cc6c77b5394d5e730a314e80a7da19da1ada8bc0cd1bcb531`; the refresh record preserves both snapshot identities.
+- The immediate post-Revise stale display was fixed and covered by offline tests; a new live browser revision retest was not performed.
+- Latest independently executed offline suite: 239 passed, 1 skipped.
 - No deployment or billing event has been performed by this decision record alone.
-
 ## Day 1 Instagram smoke test note
 - The smoke test used the same fixed corpus and a single live Instagram request.
 - The evidence records `gpt-5.4-mini-2026-03-17`, 3,683 input tokens, 547 output tokens, 4,230 total tokens, and 6.347893500002101 seconds of latency.
