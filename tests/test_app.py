@@ -447,7 +447,7 @@ def test_revision_failure_preserves_draft_and_attempts(monkeypatch) -> None:
 
     at = AppTest.from_file(REPO_ROOT / "app.py")
     at.run()
-    _run_loaded_campaign(at)
+    _load_campaign(at)
     _run_generation(at)
     at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please tighten the opening.")
@@ -458,7 +458,10 @@ def test_revision_failure_preserves_draft_and_attempts(monkeypatch) -> None:
     assert session.current_draft.revision_number == 1
     assert session.approval is None
     assert any("Remaining generation attempts: 1 of 3" in caption.value for caption in at.caption)
+    assert any("Context mode: full_corpus" in caption.value for caption in at.caption)
     assert any("Error: Could not revise draft." in error.value for error in at.error)
+    assert at.radio(key=_workspace_view_widget_key()).value == "Review"
+    assert at.checkbox(key=_approval_confirm_key(revision=1)).value is False
     del at
     gc.collect()
 
@@ -472,9 +475,72 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
         draft = SimpleNamespace(
             channel="instagram",
             revision_number=1,
-            channel_copy="Initial copy",
+            channel_copy="Initial copy word count",
             reviewer_notes="Initial notes",
-            source_manifest=(),
+            context_mode="rag",
+            source_manifest=(
+                SimpleNamespace(
+                    repository_relative_path="knowledge_base/primary/initial.md",
+                    document_title="Initial facts",
+                    knowledge_base="primary",
+                    source_urls=(PRIMARY_URL,),
+                    source_url_text=PRIMARY_URL,
+                    publisher="Patagonia, US website",
+                    published_updated="2026-10-23",
+                    accessed="2026-10-23",
+                    evidence_type="official statement",
+                ),
+            ),
+            retrieval_provenance={
+                "corpus_snapshot_id": "snapshot-initial",
+                "retrieval_settings": {"primary_top_k": 3, "secondary_top_k": 3, "primary_minimum_similarity": 0.18, "secondary_minimum_similarity": 0.12},
+                "manifest": {
+                    "corpus_snapshot_id": "snapshot-initial",
+                    "requested_model_id": "text-embedding-3-small",
+                    "returned_model_id": "text-embedding-3-small",
+                    "query_usage": {"prompt_tokens": 9, "total_tokens": 9},
+                    "query_elapsed_seconds": 0.111,
+                    "included_sources": [
+                        {
+                            "repository_relative_path": "knowledge_base/primary/initial.md",
+                            "knowledge_base": "primary",
+                            "document_title": "Initial facts",
+                            "source_urls": [PRIMARY_URL],
+                            "source_url_text": PRIMARY_URL,
+                            "publisher": "Patagonia, US website",
+                            "published_updated": "2026-10-23",
+                            "accessed": "2026-10-23",
+                            "evidence_type": "official statement",
+                            "chunk_ids": ["initial-facts-1"],
+                            "chunk_scores": [0.91],
+                            "chunk_kinds": ["facts"],
+                        }
+                    ],
+                },
+                "measurements": {
+                    "primary_selected_count": 1,
+                    "primary_fact_count": 1,
+                    "secondary_selected_count": 0,
+                    "secondary_fact_count": 0,
+                    "included_source_count": 1,
+                    "serialized_context_characters": 96,
+                    "max_serialized_characters": 6000,
+                },
+                "included_chunks": [
+                    {
+                        "source_path": "knowledge_base/primary/initial.md",
+                        "chunk_id": "initial-facts-1",
+                        "knowledge_base": "primary",
+                        "chunk_kind": "facts",
+                        "similarity": 0.91,
+                        "section_heading_path": ["Initial facts"],
+                        "chunk_line_range": [1, 5],
+                        "applicable_limitations": "",
+                        "chunk_text": "Initial facts context.",
+                    }
+                ],
+                "ranked_candidates": {"primary": [], "secondary": []},
+            },
             response_metadata=SimpleNamespace(
                 response_id="resp_initial",
                 model="model-initial",
@@ -493,9 +559,72 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
         draft = SimpleNamespace(
             channel="instagram",
             revision_number=2,
-            channel_copy="Revised copy",
+            channel_copy="Revised copy with more words",
             reviewer_notes="Revised notes",
-            source_manifest=(),
+            context_mode="rag",
+            source_manifest=(
+                SimpleNamespace(
+                    repository_relative_path="knowledge_base/primary/revised.md",
+                    document_title="Revised facts",
+                    knowledge_base="primary",
+                    source_urls=(SECONDARY_URL,),
+                    source_url_text=SECONDARY_URL,
+                    publisher="Example Publisher",
+                    published_updated="2026-10-23",
+                    accessed="2026-10-23",
+                    evidence_type="analysis",
+                ),
+            ),
+            retrieval_provenance={
+                "corpus_snapshot_id": "snapshot-revised",
+                "retrieval_settings": {"primary_top_k": 3, "secondary_top_k": 3, "primary_minimum_similarity": 0.18, "secondary_minimum_similarity": 0.12},
+                "manifest": {
+                    "corpus_snapshot_id": "snapshot-revised",
+                    "requested_model_id": "text-embedding-3-small",
+                    "returned_model_id": "text-embedding-3-small",
+                    "query_usage": {"prompt_tokens": 11, "total_tokens": 11},
+                    "query_elapsed_seconds": 0.222,
+                    "included_sources": [
+                        {
+                            "repository_relative_path": "knowledge_base/primary/revised.md",
+                            "knowledge_base": "primary",
+                            "document_title": "Revised facts",
+                            "source_urls": [SECONDARY_URL],
+                            "source_url_text": SECONDARY_URL,
+                            "publisher": "Example Publisher",
+                            "published_updated": "2026-10-23",
+                            "accessed": "2026-10-23",
+                            "evidence_type": "analysis",
+                            "chunk_ids": ["revised-facts-1"],
+                            "chunk_scores": [0.88],
+                            "chunk_kinds": ["editorial"],
+                        }
+                    ],
+                },
+                "measurements": {
+                    "primary_selected_count": 1,
+                    "primary_fact_count": 1,
+                    "secondary_selected_count": 0,
+                    "secondary_fact_count": 0,
+                    "included_source_count": 1,
+                    "serialized_context_characters": 104,
+                    "max_serialized_characters": 6000,
+                },
+                "included_chunks": [
+                    {
+                        "source_path": "knowledge_base/primary/revised.md",
+                        "chunk_id": "revised-facts-1",
+                        "knowledge_base": "primary",
+                        "chunk_kind": "editorial",
+                        "similarity": 0.88,
+                        "section_heading_path": ["Revised facts"],
+                        "chunk_line_range": [1, 6],
+                        "applicable_limitations": "",
+                        "chunk_text": "Revised facts context.",
+                    }
+                ],
+                "ranked_candidates": {"primary": [], "secondary": []},
+            },
             response_metadata=SimpleNamespace(
                 response_id="resp_revised",
                 model="model-revised",
@@ -513,7 +642,7 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
 
     at = AppTest.from_file(REPO_ROOT / "app.py")
     at.run()
-    _run_loaded_campaign(at)
+    _load_campaign(at)
     _run_generation(at)
     at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please revise the opening and keep the verified product details.")
@@ -522,17 +651,20 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
     assert calls == {"generate": 1, "revise": 1}
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert session.current_draft.revision_number == 2
-    assert session.current_draft.channel_copy == "Revised copy"
+    assert len(session.current_draft.channel_copy.split()) == 5
     assert session.current_draft.reviewer_notes == "Revised notes"
     assert session.current_draft.response_metadata.response_id == "resp_revised"
-    assert any("Instagram caption: 2 words; 0 hashtags." in caption.value for caption in at.caption)
+    assert any("Remaining generation attempts: 1 of 3" in caption.value for caption in at.caption)
+    assert any("Context mode: rag" in caption.value for caption in at.caption)
+    assert any("Corpus snapshot: snapshot-revised" in caption.value for caption in at.caption)
+    assert any("knowledge_base/primary/revised.md" in markdown.value for markdown in at.markdown)
+    assert any("Revised facts" in markdown.value for markdown in at.markdown)
+    assert at.radio(key=_workspace_view_widget_key()).value == "Review"
+    assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
+
     at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
-    assert at.text_area(key=_editor_copy_key()).value == "Revised copy"
+    assert at.text_area(key=_editor_copy_key()).value == "Revised copy with more words"
     assert at.text_area(key=_editor_notes_key()).value == "Revised notes"
-    at.radio(key=_workspace_view_widget_key()).set_value("Draft").run()
-    assert any("Revised copy" in element.value for element in at.markdown)
-    assert any("Revised notes" in element.value for element in at.markdown)
-    assert any("Response ID: resp_revised" in element.value for element in at.markdown)
 
     at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=2)).check().run()
@@ -543,7 +675,7 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
     at.run()
     at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     assert calls["revise"] == 1
-    assert at.text_area(key=_editor_copy_key()).value == "Revised copy"
+    assert at.text_area(key=_editor_copy_key()).value == "Revised copy with more words"
     assert at.text_area(key=_editor_notes_key()).value == "Revised notes"
     del at
     gc.collect()

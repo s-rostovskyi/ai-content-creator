@@ -1,0 +1,787 @@
+{
+  "channel": "email",
+  "campaign_brief": "Introduce Patagonia's Men's Nano Puff Jacket, style 84212, to an English-speaking US audience planning everyday outings and outdoor trips. Highlight verified packability and practical features. Use a direct, useful tone and one invitation to explore the product details. Avoid prices, discounts, urgency and unsupported environmental claims.",
+  "revision_number": 3,
+  "origin": "manual_edit",
+  "context_mode": "rag",
+  "raw_response": "### CHANNEL COPY\n\nSubject: Men’s Nano Puff Jacket: packable warmth\n\nPreheader: Lightweight, windproof, and easy to stash for everyday outings.\n\nBody:\nMeet the Men’s Nano Puff® Jacket, style 84212: a regular-fit layer built for cool days, windy walks, and travel-ready layering. It’s lightweight and highly compressible, so it packs down easily when you want a jacket that won’t take up much space.\n\nThe jacket is described as warm, windproof, and water-resistant. It uses a 100% recycled polyester ripstop shell with a DWR finish made without intentionally added PFAS, and PrimaLoft® Gold Insulation Eco for low-bulk insulation. Practical details include a center-front zipper with an interior storm flap and chin zipper garage, two zippered handwarmer pockets, an internal zippered chest pocket that doubles as a stuffsack, and a drawcord-adjustable drop-tail hem.\n\nFor easy care, Patagonia lists machine wash warm, no bleach, tumble dry low, and no iron. Explore the product details to see whether it fits your everyday routine and outdoor plans.\n\n### REVIEWER NOTES\n\nSupporting source paths and URLs:\n- `knowledge_base/primary/product_facts.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n- `knowledge_base/primary/repair_and_reuse.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/\n\nFacts used:\n- Product identified as Men’s Nano Puff® Jacket, style 84212, regular fit.\n- Described as warm, windproof, water-resistant, lightweight, and highly compressible.\n- Shell is 100% recycled polyester ripstop with a DWR finish made without intentionally added PFAS; water-resistant is not waterproof.\n- Insulation is 60-g PrimaLoft® Gold Insulation Eco made from 100% postconsumer recycled polyester, with P.U.R.E.™ technology.\n- Listed features: brick quilting, center-front zipper with interior storm flap and chin zipper garage, two zippered handwarmer pockets, internal zippered chest pocket that doubles as a stuffsack, drawcord-adjustable drop-tail hem.\n- Listed care instructions: machine wash warm; do not bleach; tumble dry low; do not iron.\n\nEditorial interpretations:\n- “Built for cool days, windy walks, and travel-ready layering” as a general use framing supported by the product’s warmth, windproofing, and packability.\n- “Low-bulk insulation” and “packs down easily” as shorthand for lightweight, highly compressible, and stuffsack feature.\n- “Everyday routine and outdoor plans” aligned with the campaign brief, not a sourced product claim.\n\nLimitations / uncertainties:\n- No prices, discounts, availability, or performance guarantees included.\n- Avoided any unsupported environmental outcome claims.\n- Did not mention repair/Worn Wear details in the body because they are general services and not necessary for the requested product introduction; repair eligibility and process can change.\n- No publication or update date stated on the product page.",
+  "channel_copy": "Subject: Men’s Nano Puff Jacket: packable warmth\n\nPreheader: Lightweight, windproof, and easy to stash for everyday outings.\n\nBody:\nMeet the Men’s Nano Puff® Jacket, style 84212: a regular-fit layer built for cool days, windy walks, and travel-ready layering. It’s lightweight and highly compressible, so it packs down easily when you want a jacket that won’t take up much space.\n\nThe jacket is described as warm, windproof, and water-resistant. It uses a 100% recycled polyester ripstop shell with a DWR finish made without intentionally added PFAS, and PrimaLoft® Gold Insulation Eco for low-bulk insulation. Practical details include a center-front zipper with an interior storm flap and chin zipper garage, two zippered handwarmer pockets, an internal zippered chest pocket that doubles as a stuffsack, and a drawcord-adjustable drop-tail hem.\n\nFor everyday outings, that pocket-to-stuffsack detail offers a practical way to keep the jacket packed between uses.\n\nFor easy care, Patagonia lists machine wash warm, no bleach, tumble dry low, and no iron. Explore the product details to see whether it fits your everyday routine and outdoor plans.",
+  "reviewer_notes": "Supporting source paths and URLs:\n- `knowledge_base/primary/product_facts.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n- `knowledge_base/primary/repair_and_reuse.md` — https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html\n\nFacts used:\n- Product identified as Men’s Nano Puff® Jacket, style 84212, regular fit.\n- Described as warm, windproof, water-resistant, lightweight, and highly compressible.\n- Shell is 100% recycled polyester ripstop with a DWR finish made without intentionally added PFAS; water-resistant is not waterproof.\n- Insulation identified as PrimaLoft® Gold Insulation Eco.\n- Listed features: center-front zipper with interior storm flap and chin zipper garage, two zippered handwarmer pockets, internal zippered chest pocket that doubles as a stuffsack, drawcord-adjustable drop-tail hem.\n- Listed care instructions: machine wash warm; do not bleach; tumble dry low; do not iron.\n\nEditorial interpretations:\n- “Built for cool days, windy walks, and travel-ready layering” as a general use framing supported by the product’s warmth, windproofing, and packability.\n- “Low-bulk insulation” and “packs down easily” as shorthand for lightweight, highly compressible, and stuffsack feature.\n- “Everyday routine and outdoor plans” aligned with the campaign brief, not a sourced product claim.\n- “A practical way to keep the jacket packed between uses” interprets the verified pocket-to-stuffsack feature.\n\nLimitations / uncertainties:\n- No prices, discounts, availability, or performance guarantees included.\n- Avoided any unsupported environmental outcome claims.\n- Did not mention repair/Worn Wear details in the body because they are general services and not necessary for the requested product introduction; repair eligibility and process can change.\n- No publication or update date stated on the product page.",
+  "source_manifest": [
+    {
+      "repository_relative_path": "knowledge_base/primary/product_facts.md",
+      "knowledge_base": "primary",
+      "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+      "source_urls": [
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+      ],
+      "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Not stated on the accessed product page",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement, product fact",
+      "chunk_ids": [
+        "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::001::d17ba5e788bc4d04",
+        "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::002::5a27788909c28fd7"
+      ],
+      "chunk_scores": [
+        0.522283,
+        0.510819
+      ],
+      "chunk_kinds": [
+        "facts",
+        "facts"
+      ]
+    },
+    {
+      "repository_relative_path": "knowledge_base/primary/repair_and_reuse.md",
+      "knowledge_base": "primary",
+      "document_title": "Care, Repair and Reuse for Patagonia Gear",
+      "source_urls": [
+        "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "https://www.patagonia.com/returns.html",
+        "https://www.patagonia.com/repairs/",
+        "https://www.patagonia.com/start-repair/",
+        "https://www.patagonia.com/worn-wear/"
+      ],
+      "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/",
+      "publisher": "Patagonia, US website",
+      "published_updated": "Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages",
+      "accessed": "2026-10-22",
+      "evidence_type": "official statement",
+      "chunk_ids": [
+        "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::001::cdb340c5f29dd931"
+      ],
+      "chunk_scores": [
+        0.52701
+      ],
+      "chunk_kinds": [
+        "facts"
+      ]
+    }
+  ],
+  "retrieval_provenance": {
+    "saved_at_utc": "2026-10-23T20:47:36Z",
+    "channel": "email",
+    "retrieval_status": "success",
+    "query": {
+      "text": "## Retrieval query\nChannel: email\nCampaign brief:\nIntroduce Patagonia's Men's Nano Puff Jacket, style 84212, to an English-speaking US audience planning everyday outings and outdoor trips. Highlight verified packability and practical features. Use a direct, useful tone and one invitation to explore the product details. Avoid prices, discounts, urgency and unsupported environmental claims.\nRevision feedback:\nNone\nEnd of retrieval query.",
+      "digest": "af77c672a44e6850e339d9b207b1260db87baa9c6d63879cae266d8d328ba6b0",
+      "character_count": 439
+    },
+    "corpus_snapshot_id": "4984775f808b507cc6c77b5394d5e730a314e80a7da19da1ada8bc0cd1bcb531",
+    "retrieval_settings": {
+      "index_path": "F:\\UserData\\Desktop\\AI_Consulting_and_Integration\\Week_03\\Day_4-5\\ai-content-creator\\.rag\\rag_index.sqlite3",
+      "embedding_model_id": null,
+      "primary_top_k": 3,
+      "secondary_top_k": 3,
+      "primary_minimum_similarity": 0.18,
+      "secondary_minimum_similarity": 0.12,
+      "max_context_characters": 6000,
+      "timeout_seconds": 30.0
+    },
+    "manifest": {
+      "corpus_snapshot_id": "4984775f808b507cc6c77b5394d5e730a314e80a7da19da1ada8bc0cd1bcb531",
+      "embedding_model_id": "text-embedding-3-small",
+      "requested_model_id": "text-embedding-3-small",
+      "returned_model_id": "text-embedding-3-small",
+      "query_digest": "af77c672a44e6850e339d9b207b1260db87baa9c6d63879cae266d8d328ba6b0",
+      "query_character_count": 439,
+      "query_usage": {
+        "prompt_tokens": 87,
+        "total_tokens": 87
+      },
+      "query_elapsed_seconds": 1.3559156999690458,
+      "omission_reasons": [
+        "knowledge_base/primary/product_facts.md::003::patagonia-men-s-nano-puff-jacket-style-84212-limitations::limitations::001::1d374c21a8b3a963:unsupported_chunk_kind",
+        "knowledge_base/primary/brand_voice.md::003::patagonia-editorial-observations-limitations::limitations::001::09b4f8581501ab23:unsupported_chunk_kind",
+        "knowledge_base/primary/repair_and_reuse.md::003::care-repair-and-reuse-for-patagonia-gear-limitations::limitations::001::6445761ee93b329f:unsupported_chunk_kind",
+        "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::002::e951fa2f8705c5e5:ranked_out",
+        "knowledge_base/primary/brand_voice.md::002::patagonia-editorial-observations-content-implications-interpretation-not-an-official-brand-manual::editorial::001::88ef590e74718d56:ranked_out",
+        "knowledge_base/primary/product_facts.md::002::patagonia-men-s-nano-puff-jacket-style-84212-content-implications::editorial::001::292a362bf57957d2:ranked_out",
+        "knowledge_base/primary/brand_voice.md::001::patagonia-editorial-observations-relevant-facts::editorial::001::d27a97e71ee511e7:ranked_out",
+        "knowledge_base/primary/repair_and_reuse.md::002::care-repair-and-reuse-for-patagonia-gear-content-implications::editorial::001::881924845c9efdbe:ranked_out",
+        "knowledge_base/primary/past_content/examples.md::002::published-patagonia-examples-style-references-content-implications-interpretation::editorial::001::7f8f41d9097f5d4a:ranked_out",
+        "knowledge_base/secondary/competitor_context.md::003::the-north-face-men-s-thermoball-jacket-context-limitations::limitations::001::715fbab3f5b24acf:unsupported_chunk_kind",
+        "knowledge_base/secondary/market_trends.md::003::u-s-outdoor-participation-and-textile-reuse-context-limitations::limitations::001::2a2859429662167a:unsupported_chunk_kind",
+        "knowledge_base/secondary/market_trends.md::002::u-s-outdoor-participation-and-textile-reuse-context-content-implications::editorial::001::c362cd33436d3d5b:ranked_out",
+        "knowledge_base/secondary/competitor_context.md::001::the-north-face-men-s-thermoball-jacket-context-relevant-facts::facts::001::4d5cc20fc4c0823e:budget_exceeded",
+        "knowledge_base/secondary/market_trends.md::001::u-s-outdoor-participation-and-textile-reuse-context-relevant-facts::facts::001::5b1cf88b6adfd104:budget_exceeded",
+        "knowledge_base/secondary/competitor_context.md::002::the-north-face-men-s-thermoball-jacket-context-content-implications::editorial::001::80d4730ea4da66c9:budget_exceeded"
+      ],
+      "included_sources": [
+        {
+          "repository_relative_path": "knowledge_base/primary/product_facts.md",
+          "knowledge_base": "primary",
+          "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+          "source_urls": [
+            "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+          ],
+          "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+          "publisher": "Patagonia, US website",
+          "published_updated": "Not stated on the accessed product page",
+          "accessed": "2026-10-22",
+          "evidence_type": "official statement, product fact",
+          "chunk_ids": [
+            "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::001::d17ba5e788bc4d04",
+            "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::002::5a27788909c28fd7"
+          ],
+          "chunk_scores": [
+            0.522283,
+            0.510819
+          ],
+          "chunk_kinds": [
+            "facts",
+            "facts"
+          ]
+        },
+        {
+          "repository_relative_path": "knowledge_base/primary/repair_and_reuse.md",
+          "knowledge_base": "primary",
+          "document_title": "Care, Repair and Reuse for Patagonia Gear",
+          "source_urls": [
+            "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+            "https://www.patagonia.com/returns.html",
+            "https://www.patagonia.com/repairs/",
+            "https://www.patagonia.com/start-repair/",
+            "https://www.patagonia.com/worn-wear/"
+          ],
+          "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/",
+          "publisher": "Patagonia, US website",
+          "published_updated": "Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages",
+          "accessed": "2026-10-22",
+          "evidence_type": "official statement",
+          "chunk_ids": [
+            "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::001::cdb340c5f29dd931"
+          ],
+          "chunk_scores": [
+            0.52701
+          ],
+          "chunk_kinds": [
+            "facts"
+          ]
+        }
+      ]
+    },
+    "blocked_reason": null,
+    "query_usage": {
+      "prompt_tokens": 87,
+      "total_tokens": 87
+    },
+    "query_elapsed_seconds": 1.3559156999690458,
+    "source_manifest": [
+      {
+        "repository_relative_path": "knowledge_base/primary/product_facts.md",
+        "knowledge_base": "primary",
+        "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+        "source_urls": [
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+        ],
+        "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Not stated on the accessed product page",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement, product fact",
+        "chunk_ids": [
+          "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::001::d17ba5e788bc4d04",
+          "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::002::5a27788909c28fd7"
+        ],
+        "chunk_scores": [
+          0.522283,
+          0.510819
+        ],
+        "chunk_kinds": [
+          "facts",
+          "facts"
+        ]
+      },
+      {
+        "repository_relative_path": "knowledge_base/primary/repair_and_reuse.md",
+        "knowledge_base": "primary",
+        "document_title": "Care, Repair and Reuse for Patagonia Gear",
+        "source_urls": [
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+          "https://www.patagonia.com/returns.html",
+          "https://www.patagonia.com/repairs/",
+          "https://www.patagonia.com/start-repair/",
+          "https://www.patagonia.com/worn-wear/"
+        ],
+        "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement",
+        "chunk_ids": [
+          "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::001::cdb340c5f29dd931"
+        ],
+        "chunk_scores": [
+          0.52701
+        ],
+        "chunk_kinds": [
+          "facts"
+        ]
+      }
+    ],
+    "ranked_candidates": {
+      "primary": [
+        {
+          "rank": 1,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::001::cdb340c5f29dd931",
+          "source_path": "knowledge_base/primary/repair_and_reuse.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "facts",
+          "similarity": 0.52701,
+          "document_title": "Care, Repair and Reuse for Patagonia Gear",
+          "section_id": "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts",
+          "section_heading_path": [
+            "Care, Repair and Reuse for Patagonia Gear",
+            "Relevant facts"
+          ],
+          "section_line_range": [
+            9,
+            16
+          ],
+          "chunk_line_range": [
+            10,
+            14
+          ]
+        },
+        {
+          "rank": 2,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/brand_voice.md::002::patagonia-editorial-observations-content-implications-interpretation-not-an-official-brand-manual::editorial::001::88ef590e74718d56",
+          "source_path": "knowledge_base/primary/brand_voice.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "editorial",
+          "similarity": 0.54489,
+          "document_title": "Patagonia Editorial Observations",
+          "section_id": "knowledge_base/primary/brand_voice.md::002::patagonia-editorial-observations-content-implications-interpretation-not-an-official-brand-manual",
+          "section_heading_path": [
+            "Patagonia Editorial Observations",
+            "Content implications — interpretation, not an official brand manual"
+          ],
+          "section_line_range": [
+            14,
+            21
+          ],
+          "chunk_line_range": [
+            15,
+            19
+          ]
+        },
+        {
+          "rank": 3,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::001::d17ba5e788bc4d04",
+          "source_path": "knowledge_base/primary/product_facts.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "facts",
+          "similarity": 0.522283,
+          "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+          "section_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts",
+          "section_heading_path": [
+            "Patagonia Men's Nano Puff® Jacket — Style 84212",
+            "Relevant facts"
+          ],
+          "section_line_range": [
+            9,
+            17
+          ],
+          "chunk_line_range": [
+            10,
+            15
+          ]
+        },
+        {
+          "rank": 4,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::002::5a27788909c28fd7",
+          "source_path": "knowledge_base/primary/product_facts.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "facts",
+          "similarity": 0.510819,
+          "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+          "section_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts",
+          "section_heading_path": [
+            "Patagonia Men's Nano Puff® Jacket — Style 84212",
+            "Relevant facts"
+          ],
+          "section_line_range": [
+            9,
+            17
+          ],
+          "chunk_line_range": [
+            10,
+            15
+          ]
+        },
+        {
+          "rank": 5,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/product_facts.md::002::patagonia-men-s-nano-puff-jacket-style-84212-content-implications::editorial::001::292a362bf57957d2",
+          "source_path": "knowledge_base/primary/product_facts.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "editorial",
+          "similarity": 0.545934,
+          "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+          "section_id": "knowledge_base/primary/product_facts.md::002::patagonia-men-s-nano-puff-jacket-style-84212-content-implications",
+          "section_heading_path": [
+            "Patagonia Men's Nano Puff® Jacket — Style 84212",
+            "Content implications"
+          ],
+          "section_line_range": [
+            17,
+            21
+          ],
+          "chunk_line_range": [
+            18,
+            19
+          ]
+        },
+        {
+          "rank": 6,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::002::e951fa2f8705c5e5",
+          "source_path": "knowledge_base/primary/repair_and_reuse.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "facts",
+          "similarity": 0.497838,
+          "document_title": "Care, Repair and Reuse for Patagonia Gear",
+          "section_id": "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts",
+          "section_heading_path": [
+            "Care, Repair and Reuse for Patagonia Gear",
+            "Relevant facts"
+          ],
+          "section_line_range": [
+            9,
+            16
+          ],
+          "chunk_line_range": [
+            10,
+            14
+          ]
+        },
+        {
+          "rank": 7,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/brand_voice.md::001::patagonia-editorial-observations-relevant-facts::editorial::001::d27a97e71ee511e7",
+          "source_path": "knowledge_base/primary/brand_voice.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "editorial",
+          "similarity": 0.50387,
+          "document_title": "Patagonia Editorial Observations",
+          "section_id": "knowledge_base/primary/brand_voice.md::001::patagonia-editorial-observations-relevant-facts",
+          "section_heading_path": [
+            "Patagonia Editorial Observations",
+            "Relevant facts"
+          ],
+          "section_line_range": [
+            9,
+            14
+          ],
+          "chunk_line_range": [
+            10,
+            12
+          ]
+        },
+        {
+          "rank": 8,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/repair_and_reuse.md::002::care-repair-and-reuse-for-patagonia-gear-content-implications::editorial::001::881924845c9efdbe",
+          "source_path": "knowledge_base/primary/repair_and_reuse.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "editorial",
+          "similarity": 0.521845,
+          "document_title": "Care, Repair and Reuse for Patagonia Gear",
+          "section_id": "knowledge_base/primary/repair_and_reuse.md::002::care-repair-and-reuse-for-patagonia-gear-content-implications",
+          "section_heading_path": [
+            "Care, Repair and Reuse for Patagonia Gear",
+            "Content implications"
+          ],
+          "section_line_range": [
+            16,
+            20
+          ],
+          "chunk_line_range": [
+            17,
+            18
+          ]
+        },
+        {
+          "rank": 9,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/product_facts.md::003::patagonia-men-s-nano-puff-jacket-style-84212-limitations::limitations::001::1d374c21a8b3a963",
+          "source_path": "knowledge_base/primary/product_facts.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "limitations",
+          "similarity": 0.478977,
+          "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+          "section_id": "knowledge_base/primary/product_facts.md::003::patagonia-men-s-nano-puff-jacket-style-84212-limitations",
+          "section_heading_path": [
+            "Patagonia Men's Nano Puff® Jacket — Style 84212",
+            "Limitations"
+          ],
+          "section_line_range": [
+            21,
+            24
+          ],
+          "chunk_line_range": [
+            22,
+            23
+          ]
+        },
+        {
+          "rank": 10,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/brand_voice.md::003::patagonia-editorial-observations-limitations::limitations::001::09b4f8581501ab23",
+          "source_path": "knowledge_base/primary/brand_voice.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "limitations",
+          "similarity": 0.487672,
+          "document_title": "Patagonia Editorial Observations",
+          "section_id": "knowledge_base/primary/brand_voice.md::003::patagonia-editorial-observations-limitations",
+          "section_heading_path": [
+            "Patagonia Editorial Observations",
+            "Limitations"
+          ],
+          "section_line_range": [
+            21,
+            24
+          ],
+          "chunk_line_range": [
+            22,
+            23
+          ]
+        },
+        {
+          "rank": 11,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/past_content/examples.md::002::published-patagonia-examples-style-references-content-implications-interpretation::editorial::001::7f8f41d9097f5d4a",
+          "source_path": "knowledge_base/primary/past_content/examples.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "editorial",
+          "similarity": 0.463072,
+          "document_title": "Published Patagonia Examples: Style References",
+          "section_id": "knowledge_base/primary/past_content/examples.md::002::published-patagonia-examples-style-references-content-implications-interpretation",
+          "section_heading_path": [
+            "Published Patagonia Examples: Style References",
+            "Content implications — interpretation"
+          ],
+          "section_line_range": [
+            15,
+            19
+          ],
+          "chunk_line_range": [
+            16,
+            17
+          ]
+        },
+        {
+          "rank": 12,
+          "pool": "primary",
+          "chunk_id": "knowledge_base/primary/repair_and_reuse.md::003::care-repair-and-reuse-for-patagonia-gear-limitations::limitations::001::6445761ee93b329f",
+          "source_path": "knowledge_base/primary/repair_and_reuse.md",
+          "knowledge_base": "primary",
+          "chunk_kind": "limitations",
+          "similarity": 0.483294,
+          "document_title": "Care, Repair and Reuse for Patagonia Gear",
+          "section_id": "knowledge_base/primary/repair_and_reuse.md::003::care-repair-and-reuse-for-patagonia-gear-limitations",
+          "section_heading_path": [
+            "Care, Repair and Reuse for Patagonia Gear",
+            "Limitations"
+          ],
+          "section_line_range": [
+            20,
+            23
+          ],
+          "chunk_line_range": [
+            21,
+            22
+          ]
+        }
+      ],
+      "secondary": [
+        {
+          "rank": 1,
+          "pool": "secondary",
+          "chunk_id": "knowledge_base/secondary/competitor_context.md::001::the-north-face-men-s-thermoball-jacket-context-relevant-facts::facts::001::4d5cc20fc4c0823e",
+          "source_path": "knowledge_base/secondary/competitor_context.md",
+          "knowledge_base": "secondary",
+          "chunk_kind": "facts",
+          "similarity": 0.529413,
+          "document_title": "The North Face Men’s THERMOBALL™ Jacket Context",
+          "section_id": "knowledge_base/secondary/competitor_context.md::001::the-north-face-men-s-thermoball-jacket-context-relevant-facts",
+          "section_heading_path": [
+            "The North Face Men’s THERMOBALL™ Jacket Context",
+            "Relevant facts"
+          ],
+          "section_line_range": [
+            9,
+            16
+          ],
+          "chunk_line_range": [
+            10,
+            14
+          ]
+        },
+        {
+          "rank": 2,
+          "pool": "secondary",
+          "chunk_id": "knowledge_base/secondary/competitor_context.md::002::the-north-face-men-s-thermoball-jacket-context-content-implications::editorial::001::80d4730ea4da66c9",
+          "source_path": "knowledge_base/secondary/competitor_context.md",
+          "knowledge_base": "secondary",
+          "chunk_kind": "editorial",
+          "similarity": 0.548654,
+          "document_title": "The North Face Men’s THERMOBALL™ Jacket Context",
+          "section_id": "knowledge_base/secondary/competitor_context.md::002::the-north-face-men-s-thermoball-jacket-context-content-implications",
+          "section_heading_path": [
+            "The North Face Men’s THERMOBALL™ Jacket Context",
+            "Content implications"
+          ],
+          "section_line_range": [
+            16,
+            21
+          ],
+          "chunk_line_range": [
+            17,
+            19
+          ]
+        },
+        {
+          "rank": 3,
+          "pool": "secondary",
+          "chunk_id": "knowledge_base/secondary/competitor_context.md::003::the-north-face-men-s-thermoball-jacket-context-limitations::limitations::001::715fbab3f5b24acf",
+          "source_path": "knowledge_base/secondary/competitor_context.md",
+          "knowledge_base": "secondary",
+          "chunk_kind": "limitations",
+          "similarity": 0.514825,
+          "document_title": "The North Face Men’s THERMOBALL™ Jacket Context",
+          "section_id": "knowledge_base/secondary/competitor_context.md::003::the-north-face-men-s-thermoball-jacket-context-limitations",
+          "section_heading_path": [
+            "The North Face Men’s THERMOBALL™ Jacket Context",
+            "Limitations"
+          ],
+          "section_line_range": [
+            21,
+            26
+          ],
+          "chunk_line_range": [
+            22,
+            25
+          ]
+        },
+        {
+          "rank": 4,
+          "pool": "secondary",
+          "chunk_id": "knowledge_base/secondary/market_trends.md::002::u-s-outdoor-participation-and-textile-reuse-context-content-implications::editorial::001::c362cd33436d3d5b",
+          "source_path": "knowledge_base/secondary/market_trends.md",
+          "knowledge_base": "secondary",
+          "chunk_kind": "editorial",
+          "similarity": 0.476752,
+          "document_title": "U.S. Outdoor Participation and Textile Reuse Context",
+          "section_id": "knowledge_base/secondary/market_trends.md::002::u-s-outdoor-participation-and-textile-reuse-context-content-implications",
+          "section_heading_path": [
+            "U.S. Outdoor Participation and Textile Reuse Context",
+            "Content implications"
+          ],
+          "section_line_range": [
+            15,
+            20
+          ],
+          "chunk_line_range": [
+            16,
+            18
+          ]
+        },
+        {
+          "rank": 5,
+          "pool": "secondary",
+          "chunk_id": "knowledge_base/secondary/market_trends.md::001::u-s-outdoor-participation-and-textile-reuse-context-relevant-facts::facts::001::5b1cf88b6adfd104",
+          "source_path": "knowledge_base/secondary/market_trends.md",
+          "knowledge_base": "secondary",
+          "chunk_kind": "facts",
+          "similarity": 0.387206,
+          "document_title": "U.S. Outdoor Participation and Textile Reuse Context",
+          "section_id": "knowledge_base/secondary/market_trends.md::001::u-s-outdoor-participation-and-textile-reuse-context-relevant-facts",
+          "section_heading_path": [
+            "U.S. Outdoor Participation and Textile Reuse Context",
+            "Relevant facts"
+          ],
+          "section_line_range": [
+            9,
+            15
+          ],
+          "chunk_line_range": [
+            10,
+            13
+          ]
+        },
+        {
+          "rank": 6,
+          "pool": "secondary",
+          "chunk_id": "knowledge_base/secondary/market_trends.md::003::u-s-outdoor-participation-and-textile-reuse-context-limitations::limitations::001::2a2859429662167a",
+          "source_path": "knowledge_base/secondary/market_trends.md",
+          "knowledge_base": "secondary",
+          "chunk_kind": "limitations",
+          "similarity": 0.408666,
+          "document_title": "U.S. Outdoor Participation and Textile Reuse Context",
+          "section_id": "knowledge_base/secondary/market_trends.md::003::u-s-outdoor-participation-and-textile-reuse-context-limitations",
+          "section_heading_path": [
+            "U.S. Outdoor Participation and Textile Reuse Context",
+            "Limitations"
+          ],
+          "section_line_range": [
+            20,
+            24
+          ],
+          "chunk_line_range": [
+            21,
+            23
+          ]
+        }
+      ]
+    },
+    "included_chunks": [
+      {
+        "rank": 1,
+        "pool": "primary",
+        "chunk_id": "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::001::cdb340c5f29dd931",
+        "source_path": "knowledge_base/primary/repair_and_reuse.md",
+        "knowledge_base": "primary",
+        "chunk_kind": "facts",
+        "similarity": 0.52701,
+        "document_title": "Care, Repair and Reuse for Patagonia Gear",
+        "section_id": "knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts",
+        "section_heading_path": [
+          "Care, Repair and Reuse for Patagonia Gear",
+          "Relevant facts"
+        ],
+        "section_line_range": [
+          9,
+          16
+        ],
+        "chunk_line_range": [
+          10,
+          14
+        ],
+        "source_urls": [
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+          "https://www.patagonia.com/returns.html",
+          "https://www.patagonia.com/repairs/",
+          "https://www.patagonia.com/start-repair/",
+          "https://www.patagonia.com/worn-wear/"
+        ],
+        "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement",
+        "chunk_text": "- For the cited Men's Nano Puff® Jacket, style 84212, the product page lists: machine wash warm; do not bleach; tumble dry low; do not iron. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- Patagonia’s US Returns & Exchanges page directs customers to Product Care & Repair, Patagonia-owned stores and a repair start page. The linked Product Repair page explicitly says to clean the product before sending it in and that an item will be returned to the customer to wash if it is not clean. [Returns & Exchanges](https://www.patagonia.com/returns.html) [Product Repair](https://www.patagonia.com/start-repair/)\n- Patagonia’s Worn Wear page describes used gear as washed, inspected and backed by the Ironclad Guarantee. It says items are inspected, authenticated, graded for condition and repaired when needed; it also offers trade-in for credit and DIY care and repair guides. [Worn Wear](https://www.patagonia.com/worn-wear/)\n- Patagonia frames care, repair, buying used and trading in as ways to keep gear in play. These are general company and Worn Wear services, not a promise that every style, damage type or trade-in is eligible.",
+        "applicable_limitations": "- The accessed pages do not promise that every 84212 repair will be possible, free or eligible for trade-in. Availability, eligibility and process details can change; verify before publication."
+      },
+      {
+        "rank": 3,
+        "pool": "primary",
+        "chunk_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::001::d17ba5e788bc4d04",
+        "source_path": "knowledge_base/primary/product_facts.md",
+        "knowledge_base": "primary",
+        "chunk_kind": "facts",
+        "similarity": 0.522283,
+        "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+        "section_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts",
+        "section_heading_path": [
+          "Patagonia Men's Nano Puff® Jacket — Style 84212",
+          "Relevant facts"
+        ],
+        "section_line_range": [
+          9,
+          17
+        ],
+        "chunk_line_range": [
+          10,
+          15
+        ],
+        "source_urls": [
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+        ],
+        "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Not stated on the accessed product page",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement, product fact",
+        "chunk_text": "- The page identifies the product as the Men's Nano Puff® Jacket, style no. 84212, with a regular fit. It describes the jacket as warm, windproof and water-resistant, and says it is lightweight and highly compressible. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- The shell is 100% recycled polyester ripstop with a durable water repellent (DWR) finish made without intentionally added PFAS; Patagonia says the finish is intended to shed light moisture. Water-resistant is not waterproof. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- Insulation is 60-g PrimaLoft® Gold Insulation Eco made from 100% postconsumer recycled polyester, with P.U.R.E.™ technology. The recycled-content statement applies to the insulation component; the shell and lining are separately identified as 100% recycled polyester.",
+        "applicable_limitations": "- The page does not state a publication or update date. Do not mix these facts with the Nano Puff Hoody, women’s version, other styles or earlier seasons."
+      },
+      {
+        "rank": 4,
+        "pool": "primary",
+        "chunk_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::002::5a27788909c28fd7",
+        "source_path": "knowledge_base/primary/product_facts.md",
+        "knowledge_base": "primary",
+        "chunk_kind": "facts",
+        "similarity": 0.510819,
+        "document_title": "Patagonia Men's Nano Puff® Jacket — Style 84212",
+        "section_id": "knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts",
+        "section_heading_path": [
+          "Patagonia Men's Nano Puff® Jacket — Style 84212",
+          "Relevant facts"
+        ],
+        "section_line_range": [
+          9,
+          17
+        ],
+        "chunk_line_range": [
+          10,
+          15
+        ],
+        "source_urls": [
+          "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html"
+        ],
+        "source_url_text": "https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html",
+        "publisher": "Patagonia, US website",
+        "published_updated": "Not stated on the accessed product page",
+        "accessed": "2026-10-22",
+        "evidence_type": "official statement, product fact",
+        "chunk_text": "[Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- Features listed for style 84212 include a brick quilting pattern, center-front zipper with interior storm flap and chin zipper garage, two zippered handwarmer pockets, an internal zippered chest pocket that doubles as a stuffsack, and a drawcord-adjustable drop-tail hem. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- The page lists 337 g (11.9 oz), Vietnam as country of origin, and manufacture in a Fair Trade Certified™ factory; Patagonia explains that the people who made it earned a premium for their labor. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)",
+        "applicable_limitations": "- The page does not state a publication or update date. Do not mix these facts with the Nano Puff Hoody, women’s version, other styles or earlier seasons."
+      }
+    ],
+    "retrieved_context": {
+      "primary": "# Primary retrieved context\n\n## Facts\n\n### Facts\nSource path: knowledge_base/primary/repair_and_reuse.md\nChunk ID: knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts::facts::001::cdb340c5f29dd931\nSimilarity: 0.527010\nSection ID: knowledge_base/primary/repair_and_reuse.md::001::care-repair-and-reuse-for-patagonia-gear-relevant-facts\nSection heading: Care, Repair and Reuse for Patagonia Gear / Relevant facts\nSection lines: 9-16\nChunk lines: 10-14\nApplicable limitations: - The accessed pages do not promise that every 84212 repair will be possible, free or eligible for trade-in. Availability, eligibility and process details can change; verify before publication.\nProvenance: https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html; https://www.patagonia.com/returns.html; https://www.patagonia.com/repairs/; https://www.patagonia.com/start-repair/; https://www.patagonia.com/worn-wear/ | Patagonia, US website | Not stated on the accessed product, Returns & Exchanges, Product Care & Repair, Product Repair, or Worn Wear pages | 2026-10-22 | official statement\nPool: primary\n\n- For the cited Men's Nano Puff® Jacket, style 84212, the product page lists: machine wash warm; do not bleach; tumble dry low; do not iron. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- Patagonia’s US Returns & Exchanges page directs customers to Product Care & Repair, Patagonia-owned stores and a repair start page. The linked Product Repair page explicitly says to clean the product before sending it in and that an item will be returned to the customer to wash if it is not clean. [Returns & Exchanges](https://www.patagonia.com/returns.html) [Product Repair](https://www.patagonia.com/start-repair/)\n- Patagonia’s Worn Wear page describes used gear as washed, inspected and backed by the Ironclad Guarantee. It says items are inspected, authenticated, graded for condition and repaired when needed; it also offers trade-in for credit and DIY care and repair guides. [Worn Wear](https://www.patagonia.com/worn-wear/)\n- Patagonia frames care, repair, buying used and trading in as ways to keep gear in play. These are general company and Worn Wear services, not a promise that every style, damage type or trade-in is eligible.\n\n### Facts\nSource path: knowledge_base/primary/product_facts.md\nChunk ID: knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::001::d17ba5e788bc4d04\nSimilarity: 0.522283\nSection ID: knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts\nSection heading: Patagonia Men's Nano Puff® Jacket — Style 84212 / Relevant facts\nSection lines: 9-17\nChunk lines: 10-15\nApplicable limitations: - The page does not state a publication or update date. Do not mix these facts with the Nano Puff Hoody, women’s version, other styles or earlier seasons.\nProvenance: https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html | Patagonia, US website | Not stated on the accessed product page | 2026-10-22 | official statement, product fact\nPool: primary\n\n- The page identifies the product as the Men's Nano Puff® Jacket, style no. 84212, with a regular fit. It describes the jacket as warm, windproof and water-resistant, and says it is lightweight and highly compressible. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- The shell is 100% recycled polyester ripstop with a durable water repellent (DWR) finish made without intentionally added PFAS; Patagonia says the finish is intended to shed light moisture. Water-resistant is not waterproof. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- Insulation is 60-g PrimaLoft® Gold Insulation Eco made from 100% postconsumer recycled polyester, with P.U.R.E.™ technology. The recycled-content statement applies to the insulation component; the shell and lining are separately identified as 100% recycled polyester.\n\n### Facts\nSource path: knowledge_base/primary/product_facts.md\nChunk ID: knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts::facts::002::5a27788909c28fd7\nSimilarity: 0.510819\nSection ID: knowledge_base/primary/product_facts.md::001::patagonia-men-s-nano-puff-jacket-style-84212-relevant-facts\nSection heading: Patagonia Men's Nano Puff® Jacket — Style 84212 / Relevant facts\nSection lines: 9-17\nChunk lines: 10-15\nApplicable limitations: - The page does not state a publication or update date. Do not mix these facts with the Nano Puff Hoody, women’s version, other styles or earlier seasons.\nProvenance: https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html | Patagonia, US website | Not stated on the accessed product page | 2026-10-22 | official statement, product fact\nPool: primary\n\n[Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- Features listed for style 84212 include a brick quilting pattern, center-front zipper with interior storm flap and chin zipper garage, two zippered handwarmer pockets, an internal zippered chest pocket that doubles as a stuffsack, and a drawcord-adjustable drop-tail hem. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)\n- The page lists 337 g (11.9 oz), Vietnam as country of origin, and manufacture in a Fair Trade Certified™ factory; Patagonia explains that the people who made it earned a premium for their labor. [Product page](https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html)",
+      "secondary": ""
+    },
+    "measurements": {
+      "primary_selected_count": 3,
+      "primary_fact_count": 3,
+      "secondary_selected_count": 0,
+      "secondary_fact_count": 0,
+      "included_source_count": 2,
+      "serialized_context_characters": 5720,
+      "max_serialized_characters": 6000
+    }
+  },
+  "response_metadata": {
+    "response_id": "resp_09e6fd570aa17ae7006adbc7ec826887d2a898be7d2d6257db",
+    "model": "gpt-5.4-mini-2026-03-17",
+    "elapsed_seconds": 5.067303099902347,
+    "usage": {
+      "input_tokens": 1840,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0
+      },
+      "output_tokens": 691,
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "total_tokens": 2531
+    }
+  },
+  "approval": {
+    "approved_revision": 3,
+    "approved_copy_fingerprint": "ee0f145eaa0c989ab8243c007b601209c08eb884a7d4561735a59e8f0eda89b9",
+    "approved_by": "Human reviewer",
+    "approved_at": "2026-10-23T20:58:12.611445+00:00"
+  }
+}

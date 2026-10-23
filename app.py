@@ -1168,6 +1168,10 @@ def _render_review_panel(session: PipelineSession) -> None:
         return
 
     _render_revision_form(session)
+    draft = session.current_draft
+    if draft is None:
+        st.info("Generate a draft to review sources, revision feedback and approvals.")
+        return
     st.caption(f"Remaining generation attempts: {session.remaining_paid_attempts} of {session.max_paid_attempts}")
     st.caption(f"Context mode: {_draft_context_mode(draft)}")
     _render_format_feedback(draft, location="approval")
