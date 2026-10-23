@@ -111,6 +111,10 @@ class SQLiteVectorIndex:
     def source_count(self) -> int:
         return len(self.corpus_snapshot.source_fingerprints)
 
+    @property
+    def records(self) -> tuple[IndexedChunkRecord, ...]:
+        return self._records
+
     @classmethod
     def open(cls, index_path: str | Path) -> "SQLiteVectorIndex":
         resolved_path = Path(index_path).resolve()
