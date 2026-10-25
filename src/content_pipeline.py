@@ -116,6 +116,7 @@ class PipelineSession:
     current_draft: PipelineDraft | None = None
     approval: ApprovalRecord | None = None
     history: list[PipelineDraft] = field(default_factory=list)
+    product_id: str | None = None
 
     @property
     def remaining_paid_attempts(self) -> int:
@@ -131,7 +132,11 @@ def create_pipeline_session(
     context_bundle: PromptContextBundle,
     *,
     max_paid_attempts: int = 3,
+    product_id: str | None = None,
 ) -> PipelineSession:
+    if product_id is not None:
+        from src.product_catalog import get_product
+        get_product(product_id)
     if channel not in SUPPORTED_CHANNELS:
         raise ContentPipelineError(f"Unsupported channel: {channel!r}.")
     if not isinstance(campaign_brief, str) or not campaign_brief.strip():
@@ -149,6 +154,7 @@ def create_pipeline_session(
         campaign_brief=campaign_brief,
         context_bundle=context_bundle,
         max_paid_attempts=max_paid_attempts,
+        product_id=product_id,
     )
 
 
@@ -169,6 +175,7 @@ def generate_initial_draft(
         session.campaign_brief,
         resolved_context.prompt_context,
         context_mode=resolved_context.context_mode,
+        product_id=session.product_id,
     )
     response = generation_function(
         instructions=prompt_parts.trusted_instructions,
@@ -216,6 +223,7 @@ def revise_current_draft(
         resolved_context.prompt_context,
         feedback=revision_feedback,
         context_mode=resolved_context.context_mode,
+        product_id=session.product_id,
     )
     response = generation_function(
         instructions=prompt_parts.trusted_instructions,
@@ -430,6 +438,8 @@ def _resolve_generation_context(
     current_draft: PipelineDraft | None = None,
 ) -> ResolvedGenerationContext:
     if context_provider is None:
+        if session.product_id is not None:
+            raise ContentPipelineError("Prepared product campaigns require explicit RAG context; no full-corpus fallback is allowed.")
         return ResolvedGenerationContext(context_mode="full_corpus", prompt_context=session.context_bundle)
 
     resolved_context = context_provider.resolve(
@@ -437,6 +447,8 @@ def _resolve_generation_context(
         revision_feedback=revision_feedback,
         current_draft=current_draft,
     )
+    if session.product_id is not None and resolved_context.context_mode != "rag":
+        raise ContentPipelineError("Prepared product campaigns require product-scoped RAG context.")
     if resolved_context.context_mode not in {"full_corpus", "rag"}:
         raise ContentPipelineError("context_mode must be either 'full_corpus' or 'rag'.")
     if not _is_prompt_context_bundle(resolved_context.prompt_context):
@@ -529,6 +541,7 @@ def _build_export_sidecar(session: PipelineSession, approval: ApprovalRecord) ->
     return {
         "channel": draft.channel,
         "campaign_brief": draft.campaign_brief,
+        "product_id": session.product_id,
         "revision_number": draft.revision_number,
         "origin": draft.origin,
         "context_mode": draft.context_mode,

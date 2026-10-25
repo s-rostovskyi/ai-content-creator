@@ -51,6 +51,14 @@ def _default_rag_index_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rag_context_provider.LiveRagContextProvider, "describe_status", fake_describe_status)
 
 
+def _on_page(at: AppTest, section: str) -> AppTest:
+    """Navigate through the visible selector before using that page's controls."""
+    if at.radio(key="studio_section_widget").value != section:
+        at.radio(key="studio_section_widget").set_value(section).run()
+        assert not at.exception
+    return at
+
+
 def _editor_copy_key(channel: str = DEFAULT_TEST_CHANNEL) -> str:
     return ui_state.editor_copy_key(channel)
 
@@ -184,7 +192,7 @@ def _run_loaded_campaign(at: AppTest) -> None:
 
 
 def _run_generation(at: AppTest) -> None:
-    at.button(key="generate_button").click().run()
+    _on_page(at, "Campaign").button(key="generate_button").click().run()
 
 
 def _prepare_brief(at: AppTest) -> None:
@@ -196,6 +204,7 @@ def _use_prepared_brief(at: AppTest) -> None:
 
 
 def _load_campaign(at: AppTest, *, channel: str | None = None, brief: str | None = None) -> None:
+    _on_page(at, "Campaign")
     if channel is not None:
         at.selectbox(key=ui_state.CAMPAIGN_CHANNEL_INPUT_KEY).set_value(channel)
     if brief is not None:
@@ -350,7 +359,7 @@ def test_initial_state_does_not_generate_and_keeps_default_channel(monkeypatch) 
     at = AppTest.from_file(REPO_ROOT / "app.py")
     at.run()
 
-    assert len(at.selectbox) == 2
+    assert len(at.selectbox) == 3
     assert at.selectbox(key=ui_state.CAMPAIGN_CHANNEL_INPUT_KEY).value == "instagram"
     assert at.selectbox(key=ui_state.BRIEF_INSIGHT_ANGLE_KEY).value == "packability"
     assert at.text_area(key=ui_state.CAMPAIGN_BRIEF_INPUT_KEY).value == BRIEF
@@ -377,13 +386,14 @@ def test_explicit_generation_requires_button_click(monkeypatch) -> None:
 
     _run_loaded_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    assert any(status.state == "complete" and status.label == "Generating draft completed." for status in at.status)
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
 
     assert calls["generate"] == 1
     assert any("Remaining generation attempts: 2 of 3" in caption.value for caption in at.caption)
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
-    assert at.text_area(key=_editor_copy_key()).value == "Generated copy v1"
-    assert at.text_area(key=_editor_notes_key()).value == "Generated notes v1"
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    assert _on_page(at, "Campaign").text_area(key=_editor_copy_key()).value == "Generated copy v1"
+    assert _on_page(at, "Campaign").text_area(key=_editor_notes_key()).value == "Generated notes v1"
     assert len(at.download_button) == 0
     del at
     gc.collect()
@@ -415,7 +425,7 @@ def test_revision_updates_remaining_attempts_immediately(monkeypatch) -> None:
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please tighten the opening.")
     at.button(key="revise_button").click().run()
 
@@ -449,9 +459,10 @@ def test_revision_failure_preserves_draft_and_attempts(monkeypatch) -> None:
     at.run()
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please tighten the opening.")
     at.button(key="revise_button").click().run()
+    assert any(status.state == "error" for status in at.status)
 
     assert calls == {"generate": 1, "revise": 1}
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
@@ -460,7 +471,7 @@ def test_revision_failure_preserves_draft_and_attempts(monkeypatch) -> None:
     assert any("Remaining generation attempts: 1 of 3" in caption.value for caption in at.caption)
     assert any("Context mode: full_corpus" in caption.value for caption in at.caption)
     assert any("Error: Could not revise draft." in error.value for error in at.error)
-    assert at.radio(key=_workspace_view_widget_key()).value == "Review"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Review"
     assert at.checkbox(key=_approval_confirm_key(revision=1)).value is False
     del at
     gc.collect()
@@ -644,7 +655,7 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
     at.run()
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.text_area(key=_revision_feedback_key()).set_value("Please revise the opening and keep the verified product details.")
     at.button(key="revise_button").click().run()
 
@@ -659,24 +670,24 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
     assert any("Corpus snapshot: snapshot-revised" in caption.value for caption in at.caption)
     assert any("knowledge_base/primary/revised.md" in markdown.value for markdown in at.markdown)
     assert any("Revised facts" in markdown.value for markdown in at.markdown)
-    assert at.radio(key=_workspace_view_widget_key()).value == "Review"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Review"
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
-    assert at.text_area(key=_editor_copy_key()).value == "Revised copy with more words"
-    assert at.text_area(key=_editor_notes_key()).value == "Revised notes"
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    assert _on_page(at, "Campaign").text_area(key=_editor_copy_key()).value == "Revised copy with more words"
+    assert _on_page(at, "Campaign").text_area(key=_editor_notes_key()).value == "Revised notes"
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=2)).check().run()
     at.button(key="approve_button").click().run()
     assert session.approval is not None
     assert session.approval.approved_revision == 2
 
     at.run()
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     assert calls["revise"] == 1
-    assert at.text_area(key=_editor_copy_key()).value == "Revised copy with more words"
-    assert at.text_area(key=_editor_notes_key()).value == "Revised notes"
+    assert _on_page(at, "Campaign").text_area(key=_editor_copy_key()).value == "Revised copy with more words"
+    assert _on_page(at, "Campaign").text_area(key=_editor_notes_key()).value == "Revised notes"
     del at
     gc.collect()
 
@@ -704,12 +715,12 @@ def test_manual_save_updates_revision_and_clears_review_state(monkeypatch) -> No
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key()).check().run()
     at.button(key="approve_button").click().run()
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
-    at.text_area(key=_editor_copy_key()).set_value("Edited copy").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").text_area(key=_editor_copy_key()).set_value("Edited copy").run()
     at.button(key="save_edit_button").click().run()
 
     assert len(at.exception) == 0
@@ -719,9 +730,9 @@ def test_manual_save_updates_revision_and_clears_review_state(monkeypatch) -> No
     assert session.approval is None
     assert at.session_state.get(_export_record_key()) is None
     assert len(at.download_button) == 0
-    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Edit"
     assert any("Saved revision: 2" in caption.value for caption in at.caption)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
     del at
     gc.collect()
@@ -757,18 +768,18 @@ def test_manual_save_reviewer_notes_enables_revision_approval(monkeypatch) -> No
     at.run()
     _run_loaded_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
 
-    at.text_area(key=_editor_notes_key()).set_value("Updated reviewer notes.").run()
+    _on_page(at, "Campaign").text_area(key=_editor_notes_key()).set_value("Updated reviewer notes.").run()
     at.button(key="save_edit_button").click().run()
 
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert calls == {"generate": 1, "revise": 0}
     assert session.current_draft.revision_number == 2
     assert session.current_draft.reviewer_notes == "Updated reviewer notes."
-    assert at.text_area(key=_editor_notes_key()).value == "Updated reviewer notes."
-    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    assert _on_page(at, "Campaign").text_area(key=_editor_notes_key()).value == "Updated reviewer notes."
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Edit"
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.checkbox(key=_approval_confirm_key(revision=2)).disabled is False
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
 
@@ -896,8 +907,8 @@ def test_campaign_reload_preserves_unchanged_session_and_per_channel_work(monkey
     at.run()
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=1)).check().run()
     at.button(key="approve_button").click().run()
 
@@ -922,13 +933,13 @@ def test_campaign_reload_preserves_unchanged_session_and_per_channel_work(monkey
     assert at.session_state[ui_state.export_record_key("instagram")] is instagram_export
     assert at.session_state.get(ui_state.export_record_key("linkedin")) is None
     assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is instagram_session
-    assert at.radio(key=_workspace_view_widget_key("instagram")).value == "Review"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).value == "Review"
     assert len(at.download_button) == 2
-    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
-    assert at.text_area(key=_editor_copy_key("instagram")).value == "Instagram copy v1"
-    assert at.text_area(key=_editor_notes_key("instagram")).value == "Instagram notes v1"
-    assert any("Instagram: Approved" in caption.value for caption in at.caption)
-    assert any("LinkedIn: Draft" in caption.value for caption in at.caption)
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
+    assert _on_page(at, "Campaign").text_area(key=_editor_copy_key("instagram")).value == "Instagram copy v1"
+    assert _on_page(at, "Campaign").text_area(key=_editor_notes_key("instagram")).value == "Instagram notes v1"
+    assert any("Instagram:** Approved" in item.value for item in at.markdown)
+    assert any("LinkedIn:** Draft" in item.value for item in at.markdown)
     del at
     gc.collect()
 
@@ -950,10 +961,10 @@ def test_channel_switch_preserves_unsaved_editor_state_and_feedback(monkeypatch)
     at.run()
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
-    at.text_area(key=_editor_copy_key("instagram")).set_value("Unsaved Instagram copy").run()
-    at.text_area(key=_editor_notes_key("instagram")).set_value("Unsaved Instagram notes").run()
-    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
+    _on_page(at, "Campaign").text_area(key=_editor_copy_key("instagram")).set_value("Unsaved Instagram copy").run()
+    _on_page(at, "Campaign").text_area(key=_editor_notes_key("instagram")).set_value("Unsaved Instagram notes").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).set_value("Review").run()
     at.text_area(key=_revision_feedback_key("instagram")).set_value("Tighten the opening.").run()
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is True
 
@@ -962,11 +973,11 @@ def test_channel_switch_preserves_unsaved_editor_state_and_feedback(monkeypatch)
     _load_campaign(at, channel="instagram", brief=BRIEF)
 
     assert calls["generate"] == 2
-    assert at.radio(key=_workspace_view_widget_key("instagram")).value == "Review"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).value == "Review"
     assert at.text_area(key=_revision_feedback_key("instagram")).value == "Tighten the opening."
-    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
-    assert at.text_area(key=_editor_copy_key("instagram")).value == "Unsaved Instagram copy"
-    assert at.text_area(key=_editor_notes_key("instagram")).value == "Unsaved Instagram notes"
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).set_value("Edit").run()
+    assert _on_page(at, "Campaign").text_area(key=_editor_copy_key("instagram")).value == "Unsaved Instagram copy"
+    assert _on_page(at, "Campaign").text_area(key=_editor_notes_key("instagram")).value == "Unsaved Instagram notes"
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is True
     assert at.session_state[ui_state.editor_working_copy_key("linkedin")] == "LinkedIn copy v1"
     assert at.session_state[ui_state.editor_working_notes_key("linkedin")] == "LinkedIn notes v1"
@@ -997,7 +1008,7 @@ def test_campaign_reload_preserves_unchanged_session(monkeypatch) -> None:
     at.run()
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key()).check().run()
     at.button(key="approve_button").click().run()
 
@@ -1176,20 +1187,20 @@ def test_saved_draft_validation_updates_after_manual_save(monkeypatch) -> None:
     initial_caption_count = sum(1 for caption in at.caption if "Instagram caption: 60 words; 0 hashtags." in caption.value)
     assert initial_caption_count >= 1
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
-    at.text_area(key=_editor_copy_key()).set_value(_instagram_copy(121)).run()
-    at.radio(key=_workspace_view_widget_key()).set_value("Draft").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").text_area(key=_editor_copy_key()).set_value(_instagram_copy(121)).run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Draft").run()
     assert any("Instagram caption: 60 words; 0 hashtags." in caption.value for caption in at.caption)
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is True
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
     at.button(key="save_edit_button").click().run()
 
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert calls == {"generate": 1}
     assert session.current_draft.revision_number == 2
-    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
-    at.radio(key=_workspace_view_widget_key()).set_value("Draft").run()
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Edit"
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Draft").run()
     assert any("Instagram caption: 121 words; 0 hashtags." in caption.value for caption in at.caption)
     assert any("Instagram captions must be 60-120 words; current draft is 121." in warning.value for warning in at.warning)
     assert ui_state.editor_is_dirty(at.session_state, "instagram") is False
@@ -1203,6 +1214,7 @@ def test_manage_sources_are_read_only_when_disabled(tmp_path, monkeypatch) -> No
     at = AppTest.from_file(REPO_ROOT / "app.py")
     at.run()
 
+    _on_page(at, "Sources")
     assert any("Source management is read-only in this deployment." in info.value for info in at.info)
     assert not any(button.label == "Preview create" for button in at.button)
     assert not any(button.label == "Preview edit" for button in at.button)
@@ -1214,14 +1226,14 @@ def test_manage_sources_are_read_only_when_disabled(tmp_path, monkeypatch) -> No
 def test_source_create_uploader_uses_backend_limit_and_rejects_oversized_uploads(tmp_path, monkeypatch) -> None:
     at, _repo_root = _make_app_test(monkeypatch, tmp_path, enable_source_management=True)
 
-    uploader = at.file_uploader(key="source_create_upload")
+    uploader = _on_page(at, "Sources").file_uploader(key="source_create_upload")
     assert uploader.proto.max_upload_size_mb == 1
 
     oversized_bytes = b"\xff" * (source_registry.MAX_SOURCE_UPLOAD_BYTES + 1)
-    at.file_uploader(key="source_create_upload").set_value(("generated-source.md", oversized_bytes, "text/markdown"))
-    at.selectbox(key="source_create_knowledge_base").set_value("secondary")
-    at.text_input(key="source_create_filename").set_value("generated-source")
-    at.button(key="source_create_preview_button").click().run()
+    _on_page(at, "Sources").file_uploader(key="source_create_upload").set_value(("generated-source.md", oversized_bytes, "text/markdown"))
+    _on_page(at, "Sources").selectbox(key="source_create_knowledge_base").set_value("secondary")
+    _on_page(at, "Sources").text_input(key="source_create_filename").set_value("generated-source")
+    _on_page(at, "Sources").button(key="source_create_preview_button").click().run()
 
     assert any("at most 1,048,576 bytes" in error.value for error in at.error)
     assert not any(button.key == "source_create_apply_button" for button in at.button)
@@ -1237,16 +1249,16 @@ def test_source_create_preview_and_apply_refreshes_inventory_and_preserves_campa
     session_before = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     uploaded_source = repo_root / "knowledge_base" / "secondary" / "competitor_context.md"
 
-    at.file_uploader(key="source_create_upload").set_value(("generated-source.md", uploaded_source.read_bytes(), "text/markdown"))
-    at.selectbox(key="source_create_knowledge_base").set_value("secondary")
-    at.text_input(key="source_create_filename").set_value("generated-source")
-    at.button(key="source_create_preview_button").click().run()
+    _on_page(at, "Sources").file_uploader(key="source_create_upload").set_value(("generated-source.md", uploaded_source.read_bytes(), "text/markdown"))
+    _on_page(at, "Sources").selectbox(key="source_create_knowledge_base").set_value("secondary")
+    _on_page(at, "Sources").text_input(key="source_create_filename").set_value("generated-source")
+    _on_page(at, "Sources").button(key="source_create_preview_button").click().run()
 
     assert any(
         "Create preview ready for knowledge_base/secondary/generated-source.md." in success.value for success in at.success
     )
 
-    at.button(key="source_create_apply_button").click().run()
+    _on_page(at, "Sources").button(key="source_create_apply_button").click().run()
 
     session_after = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert session_after is session_before
@@ -1270,18 +1282,18 @@ def test_source_edit_preview_requires_fresh_preview_and_blocks_generation_until_
     first_edit = original_markdown + "\n\nTesting note one."
     second_edit = first_edit + "\n\nTesting note two."
 
-    at.selectbox(key="source_edit_source").set_value(source_id).run()
-    at.text_area(key="source_edit_markdown").set_value(first_edit).run()
-    at.button(key="source_edit_preview_button").click().run()
+    _on_page(at, "Sources").selectbox(key="source_edit_source").set_value(source_id).run()
+    _on_page(at, "Sources").text_area(key="source_edit_markdown").set_value(first_edit).run()
+    _on_page(at, "Sources").button(key="source_edit_preview_button").click().run()
     assert any("Edit preview ready for knowledge_base/secondary/competitor_context.md." in success.value for success in at.success)
 
-    at.text_area(key="source_edit_markdown").set_value(second_edit).run()
+    _on_page(at, "Sources").text_area(key="source_edit_markdown").set_value(second_edit).run()
     assert any("changed after the last preview" in warning.value for warning in at.warning)
     assert not any(button.key == "source_edit_apply_button" for button in at.button)
 
-    at.text_area(key="source_edit_markdown").set_value(first_edit).run()
-    at.button(key="source_edit_preview_button").click().run()
-    at.button(key="source_edit_apply_button").click().run()
+    _on_page(at, "Sources").text_area(key="source_edit_markdown").set_value(first_edit).run()
+    _on_page(at, "Sources").button(key="source_edit_preview_button").click().run()
+    _on_page(at, "Sources").button(key="source_edit_apply_button").click().run()
 
     session_after = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert session_after is session_before
@@ -1289,7 +1301,7 @@ def test_source_edit_preview_requires_fresh_preview_and_blocks_generation_until_
     inventory_after = ui_state.get_source_inventory(at.session_state)
     assert inventory_after is not None
     assert sum(1 for record in inventory_after if record.knowledge_base == "secondary") == 2
-    assert at.button(key="generate_button").disabled is True
+    assert _on_page(at, "Campaign").button(key="generate_button").disabled is True
     assert any("older source snapshot" in warning.value for warning in at.warning)
 
     del at
@@ -1311,11 +1323,11 @@ def test_source_management_offline_flow_refreshes_context_and_restores_snapshot(
     uploaded_source = repo_root / "knowledge_base" / "secondary" / "competitor_context.md"
     generated_source_id = "knowledge_base/secondary/generated-source.md"
 
-    at.file_uploader(key="source_create_upload").set_value(("generated-source.md", uploaded_source.read_bytes(), "text/markdown"))
-    at.selectbox(key="source_create_knowledge_base").set_value("secondary")
-    at.text_input(key="source_create_filename").set_value("generated-source")
-    at.button(key="source_create_preview_button").click().run()
-    at.button(key="source_create_apply_button").click().run()
+    _on_page(at, "Sources").file_uploader(key="source_create_upload").set_value(("generated-source.md", uploaded_source.read_bytes(), "text/markdown"))
+    _on_page(at, "Sources").selectbox(key="source_create_knowledge_base").set_value("secondary")
+    _on_page(at, "Sources").text_input(key="source_create_filename").set_value("generated-source")
+    _on_page(at, "Sources").button(key="source_create_preview_button").click().run()
+    _on_page(at, "Sources").button(key="source_create_apply_button").click().run()
     at.run()
 
     assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is session_before
@@ -1329,13 +1341,13 @@ def test_source_management_offline_flow_refreshes_context_and_restores_snapshot(
         session_before.channel,
         ui_state.get_source_inventory_signature(at.session_state),
     ) is True
-    assert at.button(key="generate_button").disabled is True
+    assert _on_page(at, "Campaign").button(key="generate_button").disabled is True
 
-    at.selectbox(key="source_edit_source").set_value(generated_source_id).run()
+    _on_page(at, "Sources").selectbox(key="source_edit_source").set_value(generated_source_id).run()
     edited_markdown = (repo_root / generated_source_id).read_text(encoding="utf-8") + "\n\nTemporary edit note."
-    at.text_area(key="source_edit_markdown").set_value(edited_markdown).run()
-    at.button(key="source_edit_preview_button").click().run()
-    at.button(key="source_edit_apply_button").click().run()
+    _on_page(at, "Sources").text_area(key="source_edit_markdown").set_value(edited_markdown).run()
+    _on_page(at, "Sources").button(key="source_edit_preview_button").click().run()
+    _on_page(at, "Sources").button(key="source_edit_apply_button").click().run()
     at.run()
 
     assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is session_before
@@ -1349,13 +1361,13 @@ def test_source_management_offline_flow_refreshes_context_and_restores_snapshot(
         session_before.channel,
         ui_state.get_source_inventory_signature(at.session_state),
     ) is True
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.button(key="revise_button").disabled is True
 
-    at.selectbox(key="source_delete_source").set_value(generated_source_id).run()
-    at.button(key="source_delete_preview_button").click().run()
-    at.checkbox(key="source_delete_confirm").check().run()
-    at.button(key="source_delete_apply_button").click().run()
+    _on_page(at, "Sources").selectbox(key="source_delete_source").set_value(generated_source_id).run()
+    _on_page(at, "Sources").button(key="source_delete_preview_button").click().run()
+    _on_page(at, "Sources").checkbox(key="source_delete_confirm").check().run()
+    _on_page(at, "Sources").button(key="source_delete_apply_button").click().run()
     at.session_state["source_delete_confirm"] = False
 
     assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is session_before
@@ -1366,7 +1378,7 @@ def test_source_management_offline_flow_refreshes_context_and_restores_snapshot(
     assert ui_state.get_source_inventory_signature(at.session_state) == source_signature_before
     assert sum(1 for record in inventory_after_delete if record.knowledge_base == "secondary") == initial_secondary_count
     assert not (repo_root / generated_source_id).exists()
-    assert at.button(key="generate_button").disabled is True
+    assert _on_page(at, "Campaign").button(key="generate_button").disabled is True
     del at
     gc.collect()
 
@@ -1379,12 +1391,12 @@ def test_source_delete_preview_and_confirmation_refreshes_inventory_and_preserve
     session_before = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     source_id = "knowledge_base/secondary/market_trends.md"
 
-    at.selectbox(key="source_delete_source").set_value(source_id).run()
-    at.button(key="source_delete_preview_button").click().run()
+    _on_page(at, "Sources").selectbox(key="source_delete_source").set_value(source_id).run()
+    _on_page(at, "Sources").button(key="source_delete_preview_button").click().run()
     assert any("Delete preview ready for knowledge_base/secondary/market_trends.md." in success.value for success in at.success)
 
-    at.checkbox(key="source_delete_confirm").check().run()
-    at.button(key="source_delete_apply_button").click().run()
+    _on_page(at, "Sources").checkbox(key="source_delete_confirm").check().run()
+    _on_page(at, "Sources").button(key="source_delete_apply_button").click().run()
 
     session_after = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert session_after is session_before
@@ -1392,7 +1404,7 @@ def test_source_delete_preview_and_confirmation_refreshes_inventory_and_preserve
     inventory_after = ui_state.get_source_inventory(at.session_state)
     assert inventory_after is not None
     assert sum(1 for record in inventory_after if record.knowledge_base == "secondary") == 1
-    assert at.button(key="generate_button").disabled is True
+    assert _on_page(at, "Campaign").button(key="generate_button").disabled is True
     del at
     gc.collect()
 
@@ -1403,16 +1415,16 @@ def test_source_create_preview_is_invalidated_by_uploaded_content_change(tmp_pat
     original_bytes = uploaded_source.read_bytes()
     alternate_bytes = (repo_root / "knowledge_base" / "primary" / "brand_voice.md").read_bytes()
 
-    at.file_uploader(key="source_create_upload").set_value(("generated-source.md", original_bytes, "text/markdown"))
-    at.selectbox(key="source_create_knowledge_base").set_value("secondary")
-    at.text_input(key="source_create_filename").set_value("generated-source")
-    at.button(key="source_create_preview_button").click().run()
+    _on_page(at, "Sources").file_uploader(key="source_create_upload").set_value(("generated-source.md", original_bytes, "text/markdown"))
+    _on_page(at, "Sources").selectbox(key="source_create_knowledge_base").set_value("secondary")
+    _on_page(at, "Sources").text_input(key="source_create_filename").set_value("generated-source")
+    _on_page(at, "Sources").button(key="source_create_preview_button").click().run()
 
     assert any(
         "Create preview ready for knowledge_base/secondary/generated-source.md." in success.value for success in at.success
     )
 
-    at.file_uploader(key="source_create_upload").set_value(("generated-source.md", alternate_bytes, "text/markdown")).run()
+    _on_page(at, "Sources").file_uploader(key="source_create_upload").set_value(("generated-source.md", alternate_bytes, "text/markdown")).run()
     assert any("changed after the last preview" in warning.value for warning in at.warning)
     assert not any(button.key == "source_create_apply_button" for button in at.button)
 
@@ -1428,12 +1440,12 @@ def test_source_create_preview_is_invalidated_by_kb_change(tmp_path, monkeypatch
     uploaded_source = repo_root / "knowledge_base" / "secondary" / "competitor_context.md"
     uploaded_bytes = uploaded_source.read_bytes()
 
-    at.file_uploader(key="source_create_upload").set_value(("generated-source.md", uploaded_bytes, "text/markdown"))
-    at.selectbox(key="source_create_knowledge_base").set_value("secondary")
-    at.text_input(key="source_create_filename").set_value("generated-source")
-    at.button(key="source_create_preview_button").click().run()
+    _on_page(at, "Sources").file_uploader(key="source_create_upload").set_value(("generated-source.md", uploaded_bytes, "text/markdown"))
+    _on_page(at, "Sources").selectbox(key="source_create_knowledge_base").set_value("secondary")
+    _on_page(at, "Sources").text_input(key="source_create_filename").set_value("generated-source")
+    _on_page(at, "Sources").button(key="source_create_preview_button").click().run()
 
-    at.selectbox(key="source_create_knowledge_base").set_value("primary").run()
+    _on_page(at, "Sources").selectbox(key="source_create_knowledge_base").set_value("primary").run()
     assert any("changed after the last preview" in warning.value for warning in at.warning)
     assert not any(button.key == "source_create_apply_button" for button in at.button)
 
@@ -1449,20 +1461,20 @@ def test_source_delete_preview_is_invalidated_by_selected_source_change(tmp_path
     source_id = "knowledge_base/secondary/market_trends.md"
     alternate_source_id = "knowledge_base/secondary/competitor_context.md"
 
-    at.selectbox(key="source_delete_source").set_value(source_id).run()
-    at.button(key="source_delete_preview_button").click().run()
+    _on_page(at, "Sources").selectbox(key="source_delete_source").set_value(source_id).run()
+    _on_page(at, "Sources").button(key="source_delete_preview_button").click().run()
     assert any("Delete preview ready for knowledge_base/secondary/market_trends.md." in success.value for success in at.success)
 
-    at.selectbox(key="source_delete_source").set_value(alternate_source_id).run()
+    _on_page(at, "Sources").selectbox(key="source_delete_source").set_value(alternate_source_id).run()
     assert any("changed after the last preview" in warning.value for warning in at.warning)
     assert not any(button.key == "source_delete_apply_button" for button in at.button)
 
-    at.selectbox(key="source_delete_source").set_value(source_id).run()
+    _on_page(at, "Sources").selectbox(key="source_delete_source").set_value(source_id).run()
     assert not any(button.key == "source_delete_apply_button" for button in at.button)
 
-    at.button(key="source_delete_preview_button").click().run()
-    at.checkbox(key="source_delete_confirm").check().run()
-    at.button(key="source_delete_apply_button").click().run()
+    _on_page(at, "Sources").button(key="source_delete_preview_button").click().run()
+    _on_page(at, "Sources").checkbox(key="source_delete_confirm").check().run()
+    _on_page(at, "Sources").button(key="source_delete_apply_button").click().run()
 
     assert not (repo_root / source_id).exists()
     del at
@@ -1474,7 +1486,7 @@ def test_stale_campaign_blocks_generation_and_revision_handlers(tmp_path, monkey
     at, repo_root = _make_app_test(monkeypatch, tmp_path, enable_source_management=True)
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
 
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     edited_source = repo_root / "knowledge_base" / "secondary" / "market_trends.md"
@@ -1675,9 +1687,9 @@ def test_rag_index_refresh_preview_and_build_require_confirmation_and_preserve_c
     _run_generation(at)
     session_before = at.session_state[ui_state.PIPELINE_SESSION_KEY]
 
-    assert any("RAG index status: Ready" in caption.value for caption in at.caption)
+    assert any(metric.label == "RAG index" and metric.value == "Ready" for metric in at.metric)
 
-    at.button(key="rag_index_preview_button").click().run()
+    _on_page(at, "Index").button(key="rag_index_preview_button").click().run()
     assert build_calls == []
     assert at.session_state[app_module.RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] is True
     assert any("Index update preview ready." in success.value for success in at.success)
@@ -1685,12 +1697,13 @@ def test_rag_index_refresh_preview_and_build_require_confirmation_and_preserve_c
     assert any("Chunk count: 6" in caption.value for caption in at.caption)
     assert any("Reusable embeddings: 4 | Missing embeddings: 2" in caption.value for caption in at.caption)
     assert any("Planned batches: 2" in caption.value for caption in at.caption)
-    assert at.button(key="rag_index_build_button").disabled is True
+    assert _on_page(at, "Index").button(key="rag_index_build_button").disabled is True
 
-    at.checkbox(key="rag_index_build_confirm").check().run()
-    assert at.button(key="rag_index_build_button").disabled is False
-    at.button(key="rag_index_build_button").click().run()
+    _on_page(at, "Index").checkbox(key="rag_index_build_confirm").check().run()
+    assert _on_page(at, "Index").button(key="rag_index_build_button").disabled is False
+    _on_page(at, "Index").button(key="rag_index_build_button").click().run()
 
+    assert any(status.state == "complete" and status.label == "Building RAG index completed." for status in at.status)
     session_after = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     summary = at.session_state[app_module.RAG_INDEX_BUILD_SUMMARY_KEY]
     assert session_after is session_before
@@ -1738,7 +1751,7 @@ def test_rag_index_refresh_preview_is_invalidated_when_sources_change(tmp_path, 
     plan_state["current"] = _make_rag_build_plan(repo_root)
     at.run()
 
-    at.button(key="rag_index_preview_button").click().run()
+    _on_page(at, "Index").button(key="rag_index_preview_button").click().run()
     assert any("Index update preview ready." in success.value for success in at.success)
 
     plan_state["current"] = _make_rag_build_plan(
@@ -1773,8 +1786,9 @@ def test_rag_index_refresh_is_blocked_when_source_management_is_disabled(tmp_pat
         enable_source_management=False,
     )
 
-    assert any("read-only in this deployment" in info.value for info in at.info)
-    assert not any(button.key == "rag_index_preview_button" for button in at.button)
+    _on_page(at, "Index").button(key="rag_index_preview_button").click().run()
+    assert any("Index builds are disabled" in info.value for info in at.info)
+    assert any(button.key == "rag_index_preview_button" for button in at.button)
     assert not any(button.key == "rag_index_build_button" for button in at.button)
 
     monkeypatch.setattr(app_module, "SOURCE_MANAGEMENT_ENABLED", False)
@@ -1817,31 +1831,31 @@ def test_rag_index_build_failure_preserves_campaign_work_and_editor_buffers(tmp_
 
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=1)).check().run()
     at.button(key="approve_button").click().run()
     session_before = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     approval_before = session_before.approval
     assert len(at.download_button) == 2
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
-    at.text_area(key=_editor_copy_key()).set_value("Edited copy").run()
-    at.text_area(key=_editor_notes_key()).set_value("Edited notes").run()
-    editor_copy_before = at.text_area(key=_editor_copy_key()).value
-    editor_notes_before = at.text_area(key=_editor_notes_key()).value
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").text_area(key=_editor_copy_key()).set_value("Edited copy").run()
+    _on_page(at, "Campaign").text_area(key=_editor_notes_key()).set_value("Edited notes").run()
+    editor_copy_before = _on_page(at, "Campaign").text_area(key=_editor_copy_key()).value
+    editor_notes_before = _on_page(at, "Campaign").text_area(key=_editor_notes_key()).value
 
-    at.button(key="rag_index_preview_button").click().run()
-    at.checkbox(key="rag_index_build_confirm").check().run()
-    at.button(key="rag_index_build_button").click().run()
+    _on_page(at, "Index").button(key="rag_index_preview_button").click().run()
+    _on_page(at, "Index").checkbox(key="rag_index_build_confirm").check().run()
+    _on_page(at, "Index").button(key="rag_index_build_button").click().run()
 
     session_after = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     summary = at.session_state[app_module.RAG_INDEX_BUILD_SUMMARY_KEY]
     assert session_after is session_before
     assert session_after.approval == approval_before
     assert session_after.current_draft is session_before.current_draft
-    assert at.text_area(key=_editor_copy_key()).value == editor_copy_before
-    assert at.text_area(key=_editor_notes_key()).value == editor_notes_before
-    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    assert _on_page(at, "Campaign").text_area(key=_editor_copy_key()).value == editor_copy_before
+    assert _on_page(at, "Campaign").text_area(key=_editor_notes_key()).value == editor_notes_before
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Edit"
     assert ui_state.get_export_record(at.session_state, session_after.channel) is not None
     assert len(build_calls) == 1
     assert summary["outcome"] == "failure"
@@ -1850,7 +1864,8 @@ def test_rag_index_build_failure_preserves_campaign_work_and_editor_buffers(tmp_
     assert summary["resulting_index_status"] == "Ready"
     assert summary["error_message"] == "simulated build failure"
     assert at.session_state[app_module.RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY] is True
-    assert any("simulated build failure" in error.value for error in at.error)
+    _on_page(at, "Index")
+    assert any("Error: simulated build failure" in caption.value for caption in at.caption)
     assert any("Outcome: failure" in caption.value for caption in at.caption)
 
     at.run()
@@ -2319,7 +2334,7 @@ def test_rag_revision_blocks_and_preserves_previous_work(tmp_path, monkeypatch) 
     at.run()
     draft_before = session.current_draft
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=1)).check().run()
     at.button(key="approve_button").click().run()
     approval_before = session.approval
@@ -2389,20 +2404,20 @@ def test_workspace_view_retains_selection_through_save_and_approval(monkeypatch)
     at.run()
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
-    at.text_area(key=_editor_copy_key()).set_value("Edited copy").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    _on_page(at, "Campaign").text_area(key=_editor_copy_key()).set_value("Edited copy").run()
     at.button(key="save_edit_button").click().run()
 
-    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Edit"
     assert any("Saved revision: 2" in caption.value for caption in at.caption)
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
 
-    at.radio(key=_workspace_view_widget_key()).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     at.checkbox(key=_approval_confirm_key(revision=2)).check().run()
     at.button(key="approve_button").click().run()
 
-    assert at.radio(key=_workspace_view_widget_key()).value == "Review"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Review"
     assert len(at.download_button) == 2
     del at
     gc.collect()
@@ -2422,12 +2437,164 @@ def test_workspace_view_is_preserved_per_channel(monkeypatch) -> None:
     at.run()
     _load_campaign(at)
     _run_generation(at)
-    at.radio(key=_workspace_view_widget_key("instagram")).set_value("Review").run()
+    _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).set_value("Review").run()
 
     _load_campaign(at, channel="linkedin", brief=BRIEF)
-    assert at.radio(key=_workspace_view_widget_key("linkedin")).value == "Draft"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("linkedin")).value == "Draft"
 
     _load_campaign(at, channel="instagram", brief=BRIEF)
-    assert at.radio(key=_workspace_view_widget_key("instagram")).value == "Review"
+    assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key("instagram")).value == "Review"
     del at
     gc.collect()
+
+
+def test_rag_index_bootstrap_helper_uses_configured_seed_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app as app_module
+
+    calls: list[tuple[Path, str, object]] = []
+
+    def fake_bootstrap(*, repo_root, seed_path, index_path=None):
+        calls.append((repo_root, seed_path, index_path))
+        return SimpleNamespace(restored=True)
+
+    monkeypatch.setenv(app_module.RAG_INDEX_BOOTSTRAP_SEED_PATH_ENV, "deploy/rag_index_seed.sqlite3")
+    monkeypatch.setattr(app_module.rag_service, "bootstrap_rag_index_from_seed", fake_bootstrap)
+
+    app_module._bootstrap_rag_index_if_configured()
+
+    assert calls == [(app_module.REPO_ROOT, "deploy/rag_index_seed.sqlite3", None)]
+
+
+def test_seed_bootstrap_is_opt_in_and_failure_blocks_startup(monkeypatch):
+    import app as app_module
+    calls = []
+    monkeypatch.delenv(app_module.RAG_INDEX_BOOTSTRAP_SEED_PATH_ENV, raising=False)
+    monkeypatch.setattr(app_module.rag_service, "bootstrap_rag_index_from_seed", lambda **kwargs: calls.append(kwargs))
+    app_module._bootstrap_rag_index_if_configured()
+    assert calls == []
+    monkeypatch.setenv(app_module.RAG_INDEX_BOOTSTRAP_SEED_PATH_ENV, "deploy/seed.sqlite3")
+    def fail(**kwargs):
+        raise app_module.rag_service.RagServiceError("Index does not match the current corpus snapshot.")
+    monkeypatch.setattr(app_module.rag_service, "bootstrap_rag_index_from_seed", fail)
+    messages = []
+    monkeypatch.setattr(app_module.st, "error", messages.append)
+    class Stopped(Exception):
+        pass
+    def stop():
+        raise Stopped()
+    monkeypatch.setattr(app_module.st, "stop", stop)
+    with pytest.raises(Stopped):
+        app_module._bootstrap_rag_index_if_configured()
+    assert messages == ["RAG index bootstrap failed: Index does not match the current corpus snapshot."]
+
+
+def test_studio_pages_keep_overview_and_show_only_relevant_controls(monkeypatch):
+    monkeypatch.setattr(pipeline, "generate_initial_draft", lambda *a, **k: pytest.fail("Navigation must not generate"))
+    monkeypatch.setattr(rag_service, "build_rag_index", lambda *a, **k: pytest.fail("Navigation must not build"))
+    at = AppTest.from_file(REPO_ROOT / "app.py").run()
+    assert not at.exception
+    assert {metric.label: metric.value for metric in at.metric} == {
+        "RAG index": "Ready", "Primary sources": "5", "Secondary sources": "2", "Product style": "84212", "Loaded campaign": "Not loaded",
+    }
+    assert not any(widget.key == "source_browser_selected" for widget in at.selectbox)
+    assert not any(button.key == "rag_index_preview_button" for button in at.button)
+    _on_page(at, "Sources")
+    assert len(at.selectbox(key="source_browser_selected").options) == 7
+    at.radio(key="source_browser_pool").set_value("Secondary").run()
+    assert len(at.selectbox(key="source_browser_selected").options) == 2
+    assert not any(widget.key == ui_state.CAMPAIGN_CHANNEL_INPUT_KEY for widget in at.selectbox)
+    assert not any(button.key == "rag_index_preview_button" for button in at.button)
+    assert any("read-only in this deployment" in info.value for info in at.info)
+    assert not at.exception
+
+
+def test_studio_navigation_preserves_campaign_editor_feedback_and_view(tmp_path, monkeypatch):
+    at, _, _ = _make_rag_index_app_test(
+        monkeypatch, tmp_path,
+        plan_provider=lambda *, repo_root: _make_rag_build_plan(repo_root),
+        build_provider=lambda **kwargs: pytest.fail("Preview must not build"),
+    )
+    _patch_fake_generation(monkeypatch)
+    _load_campaign(at, channel="linkedin", brief="A custom campaign brief")
+    _run_generation(at)
+    session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    at.radio(key=_workspace_view_widget_key("linkedin")).set_value("Edit").run()
+    at.text_area(key=_editor_copy_key("linkedin")).set_value("Unsaved working copy").run()
+    at.text_area(key=_editor_notes_key("linkedin")).set_value("Unsaved working notes").run()
+    _on_page(at, "Sources")
+    _on_page(at, "Index").button(key="rag_index_preview_button").click().run()
+    _on_page(at, "Campaign")
+    assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is session
+    assert at.selectbox(key=ui_state.CAMPAIGN_CHANNEL_INPUT_KEY).value == "linkedin"
+    assert at.text_area(key=ui_state.CAMPAIGN_BRIEF_INPUT_KEY).value == "A custom campaign brief"
+    assert at.radio(key=_workspace_view_widget_key("linkedin")).value == "Edit"
+    assert at.text_area(key=_editor_copy_key("linkedin")).value == "Unsaved working copy"
+    assert at.text_area(key=_editor_notes_key("linkedin")).value == "Unsaved working notes"
+    at.radio(key=_workspace_view_widget_key("linkedin")).set_value("Review").run()
+    at.text_area(key=_revision_feedback_key("linkedin")).set_value("Keep this feedback").run()
+    _on_page(at, "Sources")
+    _on_page(at, "Campaign")
+    assert at.radio(key=_workspace_view_widget_key("linkedin")).value == "Review"
+    assert at.text_area(key=_revision_feedback_key("linkedin")).value == "Keep this feedback"
+    assert not at.exception
+
+
+def test_product_switch_isolates_drafts_and_restores_unsaved_work(monkeypatch):
+    _patch_fake_generation(monkeypatch)
+    at = AppTest.from_file(REPO_ROOT / "app.py").run()
+    _load_campaign(at)
+    _run_generation(at)
+    nano = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    at.radio(key=_workspace_view_widget_key()).set_value("Edit").run()
+    at.text_area(key=_editor_copy_key()).set_value("Unsaved Nano Puff copy").run()
+    at.selectbox(key="product_selector").set_value("torrentshell_85241").run()
+    assert not at.exception
+    assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is None
+    assert "85241" in at.text_area(key=ui_state.CAMPAIGN_BRIEF_INPUT_KEY).value
+    assert all("chest pocket" not in item.value for item in at.markdown)
+    _load_campaign(at)
+    _run_generation(at)
+    rain = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    assert rain is not nano
+    assert rain.product_id == "torrentshell_85241"
+    assert nano.product_id == "nano_puff_84212"
+    _on_page(at, "Sources")
+    _on_page(at, "Campaign")
+    assert at.selectbox(key="product_selector").value == "torrentshell_85241"
+    at.selectbox(key="product_selector").set_value("nano_puff_84212").run()
+    assert not at.exception
+    assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is nano
+    assert at.radio(key=_workspace_view_widget_key()).value == "Edit"
+    assert at.text_area(key=_editor_copy_key()).value == "Unsaved Nano Puff copy"
+    at.selectbox(key="product_selector").set_value("torrentshell_85241").run()
+    assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is rain
+
+
+def test_second_product_prepared_brief_uses_only_its_own_focus(monkeypatch):
+    at = AppTest.from_file(REPO_ROOT / "app.py").run()
+    at.selectbox(key="product_selector").set_value("torrentshell_85241").run()
+    at.text_input(key=ui_state.BRIEF_INSIGHT_AUDIENCE_KEY).set_value("US commuters")
+    at.text_area(key=ui_state.BRIEF_INSIGHT_OBJECTIVE_KEY).set_value("Introduce rain protection")
+    _prepare_brief(at)
+    assert not at.exception
+    brief = at.text_area(key=ui_state.BRIEF_INSIGHT_PROPOSAL_TEXT_KEY).value
+    assert "85241" in brief
+    assert "left-pocket" in brief
+    assert "stuffsack" not in brief
+    assert "windproof" not in brief
+    assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is None
+
+
+def test_preexisting_ui_session_is_bound_to_its_product_before_revision(monkeypatch):
+    _patch_fake_generation(monkeypatch)
+    at = AppTest.from_file(REPO_ROOT / "app.py").run()
+    _load_campaign(at)
+    _run_generation(at)
+    session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
+    draft = session.current_draft
+    session.product_id = None  # Pre-extension in-memory UI session.
+    at.run()
+    assert at.session_state[ui_state.PIPELINE_SESSION_KEY] is session
+    assert session.product_id == "nano_puff_84212"
+    assert session.current_draft is draft
+    assert not at.exception

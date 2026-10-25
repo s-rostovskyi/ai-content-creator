@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from typing import Literal, Mapping, Sequence
 
+from src.product_catalog import get_product
 from src.document_processor import load_knowledge_base_documents
 from src.embedding_integration import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -118,6 +119,7 @@ class RagRetrievalPlan:
     primary_minimum_similarity: float
     secondary_minimum_similarity: float
     max_context_characters: int
+    product_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -136,6 +138,7 @@ class RagRetrievalResult:
     blocked_reason: str | None
     context_bundle: RetrievedContextBundle | None
     manifest: RetrievalManifest
+    product_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -146,7 +149,19 @@ class RankedRetrievalCandidate:
 
 
 
-def build_retrieval_query(channel: Channel | str, campaign_brief: str, revision_feedback: str = "") -> str:
+def _product_source_ids(product_id, documents):
+    if product_id is None:
+        return None
+    product = get_product(product_id)
+    present = {document.repository_relative_path for document in documents}
+    if product.facts_source not in present:
+        raise RetrievalConfigurationError("The selected product has no prepared factual source. Restore its source before retrieval.")
+    return product.source_ids
+
+
+def build_retrieval_query(channel: Channel | str, campaign_brief: str, revision_feedback: str = "", *, product_id: str | None = None) -> str:
+    if product_id is not None:
+        campaign_brief = f"Selected product: {get_product(product_id).scope}\n{campaign_brief}"
     normalized_channel = _validate_channel(channel)
     normalized_brief = _require_nonempty_string(campaign_brief, "campaign_brief")
     normalized_feedback = revision_feedback.strip()
@@ -171,6 +186,7 @@ def plan_rag_context_retrieval(
     channel: Channel | str,
     campaign_brief: str,
     revision_feedback: str = "",
+    product_id: str | None = None,
     embedding_model_id: str | None = None,
     primary_top_k: int = DEFAULT_PRIMARY_TOP_K,
     secondary_top_k: int = DEFAULT_SECONDARY_TOP_K,
@@ -180,10 +196,11 @@ def plan_rag_context_retrieval(
 ) -> RagRetrievalPlan:
     root_path = _resolve_repo_root(repo_root)
     resolved_index_path = resolve_runtime_index_path(root_path, index_path)
-    query_text = build_retrieval_query(channel, campaign_brief, revision_feedback)
+    query_text = build_retrieval_query(channel, campaign_brief, revision_feedback, product_id=product_id)
     query_digest = _hash_text(query_text)
     query_character_count = len(query_text)
     documents = load_knowledge_base_documents(root_path)
+    allowed_sources = _product_source_ids(product_id, documents)
     corpus_snapshot = build_corpus_snapshot(documents)
     resolved_model = _resolve_embedding_model_id(embedding_model_id)
     existing_index = _open_existing_index(resolved_index_path)
@@ -207,6 +224,7 @@ def plan_rag_context_retrieval(
         primary_minimum_similarity=_validate_similarity_threshold(primary_minimum_similarity, "primary_minimum_similarity"),
         secondary_minimum_similarity=_validate_similarity_threshold(secondary_minimum_similarity, "secondary_minimum_similarity"),
         max_context_characters=_validate_positive_int(max_context_characters, "max_context_characters"),
+        product_id=product_id,
     )
 
 
@@ -218,6 +236,7 @@ def retrieve_rag_context(
     channel: Channel | str,
     campaign_brief: str,
     revision_feedback: str = "",
+    product_id: str | None = None,
     embedding_model_id: str | None = None,
     settings: OpenAIEmbeddingSettings | None = None,
     client: OpenAIEmbeddingsClientProtocol | None = None,
@@ -230,10 +249,11 @@ def retrieve_rag_context(
 ) -> RagRetrievalResult:
     root_path = _resolve_repo_root(repo_root)
     resolved_index_path = resolve_runtime_index_path(root_path, index_path)
-    query_text = build_retrieval_query(channel, campaign_brief, revision_feedback)
+    query_text = build_retrieval_query(channel, campaign_brief, revision_feedback, product_id=product_id)
     query_digest = _hash_text(query_text)
     query_character_count = len(query_text)
     documents = load_knowledge_base_documents(root_path)
+    allowed_sources = _product_source_ids(product_id, documents)
     initial_snapshot = build_corpus_snapshot(documents)
 
     resolved_settings = settings
@@ -264,12 +284,14 @@ def retrieve_rag_context(
         top_k=_candidate_search_limit(index, "primary", _validate_positive_int(primary_top_k, "primary_top_k")),
         minimum_similarity=_validate_similarity_threshold(primary_minimum_similarity, "primary_minimum_similarity"),
         current_corpus_snapshot=initial_snapshot,
+        source_ids=allowed_sources,
     )
     secondary_search_results = index.search_secondary(
         query_vector,
         top_k=_candidate_search_limit(index, "secondary", _validate_positive_int(secondary_top_k, "secondary_top_k")),
         minimum_similarity=_validate_similarity_threshold(secondary_minimum_similarity, "secondary_minimum_similarity"),
         current_corpus_snapshot=initial_snapshot,
+        source_ids=allowed_sources,
     )
 
     ranked_primary_candidates = _rank_search_results(query_text, primary_search_results)
@@ -304,6 +326,14 @@ def retrieve_rag_context(
             blocked_reason = "Primary factual evidence did not fit within the context budget."
             omission_reasons.append("primary_factual_evidence_exceeded_context_budget")
 
+    if product_id is not None and context_bundle is not None:
+        required_source = get_product(product_id).facts_source
+        included_ids = {chunk_id for entry in context_bundle.source_manifest for chunk_id in entry.chunk_ids}
+        if not any(item.chunk.source_id == required_source and item.chunk.chunk_kind == "facts" and item.chunk_id in included_ids
+                   for item in selected_primary_results):
+            blocked_reason = "No selected-product factual evidence fit the retrieval thresholds and context budget."
+            omission_reasons.append("no_selected_product_factual_evidence")
+
     manifest = RetrievalManifest(
         corpus_snapshot_id=initial_snapshot.snapshot_id,
         embedding_model_id=resolved_settings.model,
@@ -332,6 +362,7 @@ def retrieve_rag_context(
         blocked_reason=blocked_reason,
         context_bundle=context_bundle,
         manifest=manifest,
+        product_id=product_id,
     )
 
 
@@ -540,6 +571,7 @@ def build_rag_retrieval_evidence_payload(
     return {
         "saved_at_utc": saved_at_utc or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "channel": channel,
+        "product_id": result.product_id,
         "retrieval_status": "blocked" if result.blocked_reason is not None else "success",
         "query": {
             "text": result.query_text,

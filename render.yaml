@@ -1,0 +1,32 @@
+# Card 6.1 / Musts M5, M8. Optional Blueprint reference; do not create a second
+# service if the owner is already configuring the same app through the dashboard.
+services:
+  - type: web
+    name: patagonia-content-studio
+    runtime: python
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeployTrigger: 'off'
+    buildCommand: python -m pip install -r requirements.txt
+    startCommand: python scripts/render_start.py
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.7
+      - key: SOURCE_MANAGEMENT_ENABLED
+        value: 'false'
+      - key: DEMO_ACCESS_ENABLED
+        value: 'true'
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: RAG_INDEX_VECTOR_DIMENSIONS
+        value: '1536'
+      - key: RAG_INDEX_BOOTSTRAP_SEED_PATH
+        value: deploy/rag_index_seed_two_products.sqlite3
+      - key: OPENAI_MODEL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false

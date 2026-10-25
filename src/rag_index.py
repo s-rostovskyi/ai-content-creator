@@ -8,6 +8,7 @@ SQLite file at a temporary path and replacing the active snapshot only after the
 write succeeds.
 """
 
+from contextlib import closing
 from dataclasses import dataclass
 from hashlib import sha256
 import gc
@@ -121,7 +122,7 @@ class SQLiteVectorIndex:
         if not resolved_path.exists():
             raise FileNotFoundError(resolved_path)
 
-        with sqlite3.connect(resolved_path) as connection:
+        with closing(sqlite3.connect(resolved_path)) as connection:
             connection.row_factory = sqlite3.Row
             metadata = _load_metadata(connection)
             records = _load_records(connection, expected_embedding_model_id=metadata["embedding_model_id"])
@@ -143,6 +144,7 @@ class SQLiteVectorIndex:
         top_k: int,
         minimum_similarity: float = 0.0,
         current_corpus_snapshot: CorpusSnapshot | str,
+        source_ids: frozenset[str] | None = None,
     ) -> tuple[SearchResult, ...]:
         return self.search(
             knowledge_base="primary",
@@ -150,6 +152,7 @@ class SQLiteVectorIndex:
             top_k=top_k,
             minimum_similarity=minimum_similarity,
             current_corpus_snapshot=current_corpus_snapshot,
+            source_ids=source_ids,
         )
 
     def search_secondary(
@@ -159,6 +162,7 @@ class SQLiteVectorIndex:
         top_k: int,
         minimum_similarity: float = 0.0,
         current_corpus_snapshot: CorpusSnapshot | str,
+        source_ids: frozenset[str] | None = None,
     ) -> tuple[SearchResult, ...]:
         return self.search(
             knowledge_base="secondary",
@@ -166,6 +170,7 @@ class SQLiteVectorIndex:
             top_k=top_k,
             minimum_similarity=minimum_similarity,
             current_corpus_snapshot=current_corpus_snapshot,
+            source_ids=source_ids,
         )
 
     def search(
@@ -176,6 +181,7 @@ class SQLiteVectorIndex:
         top_k: int,
         minimum_similarity: float = 0.0,
         current_corpus_snapshot: CorpusSnapshot | str,
+        source_ids: frozenset[str] | None = None,
     ) -> tuple[SearchResult, ...]:
         self._ensure_snapshot_matches(current_corpus_snapshot)
         self._validate_top_k(top_k)
@@ -186,6 +192,8 @@ class SQLiteVectorIndex:
         scored_results: list[SearchResult] = []
         for record in self._records:
             if record.chunk.knowledge_base != knowledge_base:
+                continue
+            if source_ids is not None and record.chunk.source_id not in source_ids:
                 continue
             score = _cosine_similarity(validated_query_vector, record.vector, query_norm=query_norm)
             if score < minimum_similarity:

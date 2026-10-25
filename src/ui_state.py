@@ -532,3 +532,51 @@ def _resolve_channel(state: MutableMapping[str, Any], channel: str | None) -> st
     if isinstance(active_channel, str):
         return active_channel
     return DEFAULT_CHANNEL
+
+
+# Each prepared product owns its channel sessions, approvals and working buffers.
+_PRODUCT_FIELDS = (
+    CAMPAIGN_CHANNEL_KEY, CAMPAIGN_CHANNEL_INPUT_KEY, CAMPAIGN_BRIEF_KEY,
+    CAMPAIGN_BRIEF_INPUT_KEY, CAMPAIGN_SIGNATURE_KEY, PIPELINE_SESSION_KEY,
+    STATUS_MESSAGE_KEY, ERROR_MESSAGE_KEY, PENDING_CAMPAIGN_REPLACEMENT_KEY,
+    BRIEF_INSIGHT_ANGLE_KEY, BRIEF_INSIGHT_AUDIENCE_KEY, BRIEF_INSIGHT_OBJECTIVE_KEY,
+    BRIEF_INSIGHT_PROPOSAL_KEY, BRIEF_INSIGHT_PROPOSAL_TEXT_KEY, "replace_campaign_confirm",
+)
+_PRODUCT_PREFIXES = (
+    CHANNEL_SESSION_PREFIX, CHANNEL_EXPORT_PREFIX, CHANNEL_EDITOR_PREFIX,
+    CHANNEL_EDITOR_SAVED_PREFIX, CHANNEL_EDITOR_PENDING_PREFIX, CHANNEL_EDITOR_WORKING_PREFIX,
+    CHANNEL_REVISION_FEEDBACK_WORKING_PREFIX, CHANNEL_FEEDBACK_PREFIX,
+    CHANNEL_SOURCE_SIGNATURE_PREFIX, CHANNEL_WORKSPACE_VIEW_PREFIX,
+    CHANNEL_WORKSPACE_VIEW_WIDGET_PREFIX, APPROVAL_CONFIRM_PREFIX,
+)
+
+
+def switch_product(state: MutableMapping[str, Any], product_id: str) -> None:
+    """Swap product-owned state, retaining all other products and shared source/index state."""
+    from src.product_catalog import DEFAULT_PRODUCT_ID, get_product
+    product = get_product(product_id)
+    outgoing = state.get("active_product_id", DEFAULT_PRODUCT_ID)
+    if outgoing == product_id:
+        state["active_product_id"] = product_id
+        return
+    if action_in_progress(state, "generation") or action_in_progress(state, "revision"):
+        raise ValueError("Wait for the current operation before switching products.")
+    bank = state.setdefault("product_workspaces", {})
+    keys = [key for key in list(state.keys())
+            if isinstance(key, str) and (key in _PRODUCT_FIELDS or key.startswith(_PRODUCT_PREFIXES))]
+    bank[outgoing] = {key: state[key] for key in keys}
+    for key in keys:
+        state.pop(key, None)
+    restored = bank.get(product_id, {})
+    for key, value in restored.items():
+        state[key] = value
+    state["active_product_id"] = product_id
+    state.setdefault(CAMPAIGN_BRIEF_INPUT_KEY, product.brief)
+    initialize_state(state)
+    # Hidden widget defaults must not overwrite another product's saved inputs.
+    cache = state.setdefault("studio_input_cache", {})
+    for key in _PRODUCT_FIELDS:
+        cache.pop(key, None)
+    for key in _PRODUCT_FIELDS:
+        if key in state:
+            cache[key] = state[key]

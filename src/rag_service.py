@@ -13,6 +13,8 @@ from hashlib import sha256
 import json
 import math
 import os
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from time import perf_counter
 from typing import Sequence
@@ -109,6 +111,30 @@ class RagBuildResult:
     completed_batches: tuple[RagBatchResult, ...]
     existing_index_path: Path | None
     build_elapsed_seconds: float
+
+
+@dataclass(frozen=True)
+class RagIndexSeedPackageResult:
+    source_index_path: Path
+    seed_path: Path
+    corpus_snapshot: CorpusSnapshot
+    embedding_model_id: str
+    vector_dimensions: int
+    chunk_count: int
+    source_count: int
+    chunking_policy: ChunkingPolicy
+
+
+@dataclass(frozen=True)
+class RagIndexBootstrapResult:
+    runtime_index_path: Path
+    seed_path: Path
+    corpus_snapshot: CorpusSnapshot
+    embedding_model_id: str
+    vector_dimensions: int
+    chunk_count: int
+    source_count: int
+    restored: bool
 
 
 @dataclass(frozen=True)
@@ -401,6 +427,160 @@ def build_rag_index(
 
 
 
+def _validate_seed_index(path: Path, root: Path, model: str, dimensions: int | None) -> SQLiteVectorIndex:
+    # Read only and allow only the index schema, never arbitrary extra payloads.
+    with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as connection:
+        objects = connection.execute(
+            "SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+        if set(objects) != {("table", "metadata"), ("table", "chunks"), ("table", "vectors")}:
+            raise RagServiceError("Index contains unexpected database objects.")
+        if connection.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+            raise RagServiceError("Index integrity check failed.")
+        metadata = dict(connection.execute("SELECT key, value FROM metadata"))
+        expected_keys = {
+            "schema_version", "index_version", "corpus_snapshot_id", "embedding_model_id",
+            "vector_dimensions", "chunking_version", "chunking_max_characters",
+            "chunking_overlap_characters", "chunk_count", "source_count", "source_fingerprints",
+        }
+        if set(metadata) != expected_keys:
+            raise RagServiceError("Index contains unexpected or missing metadata.")
+        counts = [connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+                  for table in ("chunks", "vectors")]
+    index = open_vector_index(path)
+    documents = load_knowledge_base_documents(root)
+    snapshot = build_corpus_snapshot(documents)
+    chunks = build_rag_chunks(documents)
+    if index.corpus_snapshot != snapshot:
+        raise RagServiceError("Index does not match the current corpus snapshot.")
+    if index.embedding_model_id != model:
+        raise RagServiceError("Index embedding model does not match configuration.")
+    if (index.chunking_version != DEFAULT_CHUNKING_VERSION
+            or index.chunking_policy != ChunkingPolicy()):
+        raise RagServiceError("Index chunking version or policy is incompatible.")
+    if index.vector_dimensions <= 0 or (dimensions is not None and index.vector_dimensions != dimensions):
+        raise RagServiceError("Index vector dimensions do not match configuration.")
+    expected = {chunk.chunk_id: chunk for chunk in chunks}
+    actual = {record.chunk.chunk_id: record.chunk for record in index.records}
+    if actual != expected or len(index.records) != len(chunks) or counts != [len(chunks), len(chunks)]:
+        raise RagServiceError("Index records do not match the canonical corpus chunks.")
+    if int(metadata["chunk_count"]) != len(chunks) or int(metadata["source_count"]) != len(documents):
+        raise RagServiceError("Index metadata counts are inconsistent.")
+    if any(len(record.vector) != index.vector_dimensions for record in index.records):
+        raise RagServiceError("Index vector dimensions are inconsistent.")
+    return index
+
+
+def _seed_configuration(model: str | None, dimensions: int | None) -> tuple[str, int | None]:
+    resolved = _resolve_embedding_model_id(model)
+    if not resolved:
+        raise RagServiceError("Set OPENAI_EMBEDDING_MODEL or provide an explicit embedding model.")
+    if dimensions is None and os.getenv("RAG_INDEX_VECTOR_DIMENSIONS", "").strip():
+        try:
+            dimensions = int(os.environ["RAG_INDEX_VECTOR_DIMENSIONS"])
+        except ValueError:
+            raise RagServiceError("RAG_INDEX_VECTOR_DIMENSIONS must be a positive integer.") from None
+    if dimensions is not None and (isinstance(dimensions, bool) or dimensions <= 0):
+        raise RagServiceError("Expected vector dimensions must be a positive integer.")
+    return resolved, dimensions
+
+
+def _activate_seed_copy(index: SQLiteVectorIndex, destination: Path, root: Path,
+                        model: str, dimensions: int | None, *, exclusive: bool = False) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temp = _create_temp_path(destination.parent, suffix=".sqlite3")
+    try:
+        # Copy validated logical records into a fresh database. This intentionally
+        # excludes deleted SQLite pages and any unrelated physical file contents.
+        write_vector_index(
+            temp, corpus_snapshot=index.corpus_snapshot,
+            chunks=tuple(record.chunk for record in index.records),
+            vectors_by_chunk_id={record.chunk.chunk_id: record.vector for record in index.records},
+            embedding_model_id=model, vector_dimensions=index.vector_dimensions,
+            chunking_policy=index.chunking_policy,
+        )
+        _validate_seed_index(temp, root, model, dimensions)
+        if exclusive:
+            # Hard-link publication is atomic and refuses an existing seed.
+            os.link(temp, destination)
+        else:
+            os.replace(temp, destination)
+    finally:
+        _cleanup_temp_path(temp)
+
+
+def validate_rag_index_seed(
+    *, repo_root: str | Path | None = None, seed_path: str | Path,
+    embedding_model_id: str | None = None, vector_dimensions: int | None = None,
+) -> SQLiteVectorIndex:
+    """Read-only public validation for a deployment artifact, without credentials or APIs."""
+    root = _resolve_repo_root(repo_root)
+    seed = _resolve_repo_path(root, seed_path)
+    model, dimensions = _seed_configuration(embedding_model_id, vector_dimensions)
+    try:
+        return _validate_seed_index(seed, root, model, dimensions)
+    except RagServiceError:
+        raise
+    except Exception:
+        raise RagServiceError("Prepared seed validation failed.") from None
+
+
+def package_rag_index_seed(
+    *, repo_root: str | Path | None = None, index_path: str | Path | None = None,
+    seed_path: str | Path, embedding_model_id: str | None = None,
+    vector_dimensions: int | None = None,
+) -> RagIndexSeedPackageResult:
+    root = _resolve_repo_root(repo_root)
+    source = resolve_runtime_index_path(root, index_path)
+    seed = _resolve_repo_path(root, seed_path)
+    model, dimensions = _seed_configuration(embedding_model_id, vector_dimensions)
+    if seed == source or _is_within_path(seed, root / ".rag"):
+        raise RagServiceError("Deployment seed must be outside .rag and differ from the active index.")
+    if seed.exists():
+        raise RagServiceError("Deployment seed already exists; choose a new destination.")
+    try:
+        index = _validate_seed_index(source, root, model, dimensions)
+        _activate_seed_copy(index, seed, root, model, dimensions, exclusive=True)
+    except RagServiceError:
+        raise
+    except Exception:
+        raise RagServiceError("Cannot package index: validation or atomic publication failed; active index preserved.") from None
+    return RagIndexSeedPackageResult(source, seed, index.corpus_snapshot, model,
+                                     index.vector_dimensions, index.chunk_count,
+                                     index.source_count, index.chunking_policy)
+
+
+def bootstrap_rag_index_from_seed(
+    *, repo_root: str | Path | None = None, seed_path: str | Path,
+    index_path: str | Path | None = None, embedding_model_id: str | None = None,
+    vector_dimensions: int | None = None,
+) -> RagIndexBootstrapResult:
+    root = _resolve_repo_root(repo_root)
+    runtime = resolve_runtime_index_path(root, index_path)
+    seed = _resolve_repo_path(root, seed_path)
+    model, dimensions = _seed_configuration(embedding_model_id, vector_dimensions)
+    if seed == runtime:
+        raise RagServiceError("Bootstrap seed must differ from the runtime index.")
+    try:
+        index = _validate_seed_index(runtime, root, model, dimensions)
+    except Exception:
+        pass
+    else:
+        return RagIndexBootstrapResult(runtime, seed, index.corpus_snapshot, model,
+                                       index.vector_dimensions, index.chunk_count,
+                                       index.source_count, False)
+    try:
+        index = _validate_seed_index(seed, root, model, dimensions)
+        _activate_seed_copy(index, runtime, root, model, dimensions)
+    except RagServiceError:
+        raise
+    except Exception:
+        raise RagServiceError("Cannot restore seed: validation or atomic activation failed; existing index preserved.") from None
+    return RagIndexBootstrapResult(runtime, seed, index.corpus_snapshot, model,
+                                   index.vector_dimensions, index.chunk_count,
+                                   index.source_count, True)
+
+
 def render_rag_build_plan(plan: RagBuildPlan) -> str:
     lines = ["RAG index dry-run", f"Repository: {plan.repo_root}", f"Index: {plan.index_path}"]
     lines.append(f"Corpus snapshot: {plan.corpus_snapshot.snapshot_id}")
@@ -571,6 +751,22 @@ def _resolve_repo_root(repo_root: str | Path | None) -> Path:
 
 
 
+def _resolve_repo_path(repo_root: str | Path | None, path: str | Path) -> Path:
+    candidate_path = Path(path)
+    if candidate_path.is_absolute():
+        return candidate_path.resolve()
+    return (_resolve_repo_root(repo_root) / candidate_path).resolve()
+
+
+
+def _is_within_path(candidate: Path, parent: Path) -> bool:
+    try:
+        return candidate.is_relative_to(parent)
+    except AttributeError:  # pragma: no cover - Python 3.14 supports is_relative_to
+        return str(candidate).startswith(str(parent))
+
+
+
 def _resolve_embedding_model_id(embedding_model_id: str | None) -> str | None:
     if embedding_model_id is None:
         value = os.getenv("OPENAI_EMBEDDING_MODEL", "").strip()
@@ -694,9 +890,14 @@ __all__ = [
     "RagBuildResult",
     "RagEmbeddingBatchPlan",
     "RagServiceError",
+    "RagIndexSeedPackageResult",
+    "RagIndexBootstrapResult",
     "build_embedding_input_hash",
     "build_embedding_input_text",
     "build_rag_index",
+    "package_rag_index_seed",
+    "validate_rag_index_seed",
+    "bootstrap_rag_index_from_seed",
     "plan_embedding_batches",
     "plan_rag_index_build",
     "render_rag_build_plan",

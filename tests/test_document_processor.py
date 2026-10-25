@@ -48,7 +48,7 @@ def test_loads_real_corpus_with_expected_counts() -> None:
     primary_documents = [document for document in documents if document.knowledge_base == "primary"]
     secondary_documents = [document for document in documents if document.knowledge_base == "secondary"]
 
-    assert len(primary_documents) == 4
+    assert len(primary_documents) == 5
     assert len(secondary_documents) == 2
     assert [document.repository_relative_path for document in documents] == sorted(
         document.repository_relative_path for document in documents
@@ -58,7 +58,7 @@ def test_loads_real_corpus_with_expected_counts() -> None:
         assert document.metadata.document_title
         assert document.metadata.source_urls
         assert document.metadata.publisher
-        assert document.metadata.accessed == "2026-10-22"
+        assert document.metadata.accessed == ("2026-10-25" if document.repository_relative_path.endswith("torrentshell_85241.md") else "2026-10-22")
         assert document.sections
         for section in document.sections:
             assert section.repository_relative_path == document.repository_relative_path

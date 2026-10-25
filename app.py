@@ -4,6 +4,8 @@ from pathlib import Path
 import base64
 import os
 import re
+from contextlib import contextmanager
+from dataclasses import replace
 
 from dotenv import load_dotenv
 import streamlit as st
@@ -35,12 +37,14 @@ from src import source_registry
 from src import ui_state
 from src import rag_context_provider
 from src import rag_service
+from src.demo_access import require_demo_access
+from src.product_catalog import DEFAULT_PRODUCT_ID, PRODUCTS, get_product
 
 REPO_ROOT = Path(__file__).resolve().parent
 load_dotenv(REPO_ROOT / ".env", override=False)
 APP_TITLE = "Patagonia Content Studio"
-APP_SUBTITLE = "Unofficial educational prototype"
-APP_PRODUCT_LINE = "Men's Nano Puff Jacket \u00b7 Style 84212 \u00b7 US"
+APP_SUBTITLE = "Unofficial educational prototype for Patagonia content creation"
+APP_PRODUCT_LINE = "Men's Nano Puff Jacket \u00b7 Style 84212 \u00b7 US \u00b7 English"
 SOURCE_MANAGEMENT_ENABLED = os.getenv("SOURCE_MANAGEMENT_ENABLED", "").strip().lower() == "true"
 SOURCE_UPLOAD_MAX_BYTES = source_registry.MAX_SOURCE_UPLOAD_BYTES
 SOURCE_UPLOAD_MAX_MB = 1
@@ -60,18 +64,47 @@ RAG_INDEX_BUILD_CONFIRM_KEY = "rag_index_build_confirm"
 RAG_INDEX_BUILD_ACTION_KEY = "rag_index_build"
 RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY = "rag_index_manage_sources_expanded"
 RAG_INDEX_BUILD_SUMMARY_KEY = "rag_index_build_summary"
+RAG_INDEX_BOOTSTRAP_SEED_PATH_ENV = "RAG_INDEX_BOOTSTRAP_SEED_PATH"
 
 
 
 def _render_header() -> None:
     st.markdown(f"## {APP_TITLE}")
     st.caption(APP_SUBTITLE)
-    st.markdown(f"**{APP_PRODUCT_LINE}**")
 
 
 def _render_responsive_layout_styles() -> None:
     st.markdown(
         """<style>
+section[data-testid="stMain"] .block-container { padding-top: 2rem; }
+/* Shared slate tint follows the active theme through transparency and inherited text. */
+.st-key-studio_overview {
+  background-color: rgba(106, 137, 157, 0.09);
+  border: 1px solid rgba(119, 144, 162, 0.28);
+  border-radius: 0.875rem;
+  padding: 1rem 1.25rem;
+  color: inherit;
+}
+.st-key-studio_overview .studio-overview-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+.st-key-studio_overview [data-testid="stMetricValue"] { font-size: 1.6rem; }
+.st-key-studio_overview [data-testid="stMetricLabel"] { opacity: 0.8; }
+.st-key-studio_overview:has([data-index-state="ready"]) .st-key-overview_index_metric [data-testid="stMetricValue"] {
+  color: color-mix(in srgb, currentColor 60%, #469078 40%);
+}
+.st-key-studio_overview:has([data-index-state="stale"]) .st-key-overview_index_metric [data-testid="stMetricValue"],
+.st-key-studio_overview:has([data-index-state="missing"]) .st-key-overview_index_metric [data-testid="stMetricValue"] {
+  color: color-mix(in srgb, currentColor 60%, #b38635 40%);
+}
+.st-key-studio_overview:has([data-index-state="incompatible"]) .st-key-overview_index_metric [data-testid="stMetricValue"] {
+  color: color-mix(in srgb, currentColor 60%, #bf665d 40%);
+}
 @media (max-width: 800px) {
   section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] {
     flex-direction: column;
@@ -115,6 +148,20 @@ def _render_header_image() -> None:
 
 def _build_rag_context_provider() -> rag_context_provider.LiveRagContextProvider:
     return rag_context_provider.LiveRagContextProvider(repo_root=REPO_ROOT)
+
+
+
+def _bootstrap_rag_index_if_configured() -> None:
+    seed_path = os.getenv(RAG_INDEX_BOOTSTRAP_SEED_PATH_ENV, "").strip()
+    if not seed_path:
+        return
+
+    try:
+        rag_service.bootstrap_rag_index_from_seed(repo_root=REPO_ROOT, seed_path=seed_path)
+    except rag_service.RagServiceError as exc:
+        message = str(exc).strip() or exc.__class__.__name__
+        st.error(f"RAG index bootstrap failed: {message}")
+        st.stop()
 
 
 
@@ -597,7 +644,7 @@ def _run_rag_index_build(plan) -> None:
     ui_state.set_action_in_progress(st.session_state, RAG_INDEX_BUILD_ACTION_KEY, True)
     preview_plan = preview_state["plan"]
     try:
-        with st.spinner("Building RAG index..."):
+        with _operation_status("Building RAG index", "Validating the corpus, reusing vectors and embedding missing inputs; then publishing atomically."):
             result = rag_service.build_rag_index(repo_root=REPO_ROOT)
     except Exception as exc:  # noqa: BLE001
         _store_rag_index_build_summary(
@@ -652,6 +699,9 @@ def _render_rag_index_refresh_panel(plan) -> None:
 
     preview_plan = preview_state["plan"]
     _render_rag_index_preview_details(preview_plan)
+    if not SOURCE_MANAGEMENT_ENABLED:
+        st.info("Index builds are disabled in this deployment. The preview is offline and read-only.")
+        return
     st.caption("Building may incur embedding API charges.")
     confirmed = st.checkbox(
         "I understand this build may incur embedding API charges.",
@@ -669,34 +719,14 @@ def _render_rag_index_refresh_panel(plan) -> None:
 
 
 def _render_manage_sources_area(source_records) -> None:
-    source_records = tuple(source_records or ())
-    primary_records, secondary_records = _source_records_by_knowledge_base(source_records)
-    plan = rag_service.plan_rag_index_build(repo_root=REPO_ROOT)
-    status = _rag_index_status_from_build_plan(plan)
-
     with st.expander("Manage sources", expanded=st.session_state.get(RAG_INDEX_MANAGE_SOURCES_EXPANDED_KEY, False)):
-        st.caption("Source management is a deployment safeguard, not user authentication.")
+        st.caption("Preview changes before saving. Source management is a deployment safeguard, not user authentication.")
         if not ui_state.source_inventory_is_current(st.session_state):
-            error_message = ui_state.get_source_inventory_error(st.session_state)
-            st.warning(
-                "The source inventory could not be refreshed. Existing campaign work is retained, but generation and revision are blocked until the sources are refreshed."
-            )
-            if error_message:
-                st.caption(error_message)
-
-        st.markdown(f"**Primary sources ({len(primary_records)})**")
-        _render_source_inventory_group(primary_records)
-        st.markdown(f"**Secondary sources ({len(secondary_records)})**")
-        _render_source_inventory_group(secondary_records)
-        _render_rag_index_status(status)
-
+            st.warning("Source inventory is unavailable. Generation and revision are blocked until it refreshes.")
+            return
         if not SOURCE_MANAGEMENT_ENABLED:
             st.info("Source management is read-only in this deployment. Set SOURCE_MANAGEMENT_ENABLED=true to allow validated mutations.")
             return
-
-        st.divider()
-        _render_rag_index_refresh_panel(plan)
-        st.divider()
         create_tab, edit_tab, delete_tab = st.tabs(["Create", "Edit", "Delete"])
         with create_tab:
             _render_source_create_panel()
@@ -894,6 +924,7 @@ def _render_source_delete_panel(source_records) -> None:
     preview_requested = st.button("Preview delete", key="source_delete_preview_button", use_container_width=True)
 
     if preview_requested:
+        st.session_state[SOURCE_DELETE_CONFIRM_KEY] = False
         try:
             prepared_operation = source_registry.prepare_delete_source(
                 selected_source_id,
@@ -932,7 +963,6 @@ def _render_source_delete_panel(source_records) -> None:
             _show_source_registry_error(exc, action="deleting the source")
             return
         st.session_state.pop(SOURCE_DELETE_PREVIEW_KEY, None)
-        st.session_state.pop(SOURCE_DELETE_CONFIRM_KEY, None)
         st.success(f"Deleted {result.source_id}.")
         if not _refresh_source_state():
             st.warning(
@@ -947,7 +977,11 @@ def _render_campaign_insights_and_brief() -> None:
         st.error("Could not load the knowledge base corpus for brief preparation.")
         st.stop()
 
-    angle_options = get_campaign_angle_options()
+    product = _selected_product()
+    snapshot = replace(snapshot,
+                       primary_sources=tuple(card for card in snapshot.primary_sources if card.repository_relative_path in product.source_ids),
+                       secondary_sources=tuple(card for card in snapshot.secondary_sources if card.repository_relative_path in product.source_ids))
+    angle_options = get_campaign_angle_options(product.product_id)
     angle_labels = {option.key: option.label for option in angle_options}
 
     with st.expander("Insights & brief", expanded=False):
@@ -955,11 +989,7 @@ def _render_campaign_insights_and_brief() -> None:
             "Review the curated source snapshot, then prepare one editable brief for all three channels. "
             "Historical industry evidence is background only, not live monitoring or channel-performance data."
         )
-        st.markdown(f"**{PRIMARY_LABEL}**")
-        _render_brief_source_group(snapshot.primary_sources)
-        st.markdown(f"**{SECONDARY_LABEL}**")
-        _render_brief_source_group(snapshot.secondary_sources)
-        st.divider()
+        st.caption("Browse the underlying documents in Sources. Preparing a brief does not load a campaign or call the API.")
         with st.form("brief_insights_form", clear_on_submit=False):
             st.selectbox(
                 "Campaign angle",
@@ -988,6 +1018,7 @@ def _render_campaign_insights_and_brief() -> None:
                     st.session_state[ui_state.BRIEF_INSIGHT_ANGLE_KEY],
                     st.session_state[ui_state.BRIEF_INSIGHT_AUDIENCE_KEY],
                     st.session_state[ui_state.BRIEF_INSIGHT_OBJECTIVE_KEY],
+                    product_id=product.product_id,
                 )
             except ValueError as exc:
                 _show_error(exc)
@@ -1061,9 +1092,189 @@ def _render_format_feedback(draft, *, location: str) -> None:
 
 
 
+# Card 5.1 / Must M5: navigation values survive Streamlit widget cleanup.
+_PAGE_INPUT_KEYS = {
+    "Campaign": (
+        ui_state.CAMPAIGN_CHANNEL_INPUT_KEY, ui_state.CAMPAIGN_BRIEF_INPUT_KEY,
+        ui_state.BRIEF_INSIGHT_ANGLE_KEY, ui_state.BRIEF_INSIGHT_AUDIENCE_KEY,
+        ui_state.BRIEF_INSIGHT_OBJECTIVE_KEY, ui_state.BRIEF_INSIGHT_PROPOSAL_TEXT_KEY,
+    ),
+    "Sources": (
+        SOURCE_EDIT_SOURCE_KEY, SOURCE_EDIT_MARKDOWN_KEY, SOURCE_CREATE_FILENAME_KEY,
+        SOURCE_CREATE_KB_KEY, SOURCE_DELETE_SOURCE_KEY, "source_browser_pool", "source_browser_selected",
+    ),
+}
+
+
+def _remember_page_inputs() -> None:
+    cache = st.session_state.setdefault("studio_input_cache", {})
+    outgoing = st.session_state.get("studio_rendered_section", "Campaign")
+    for key in _PAGE_INPUT_KEYS.get(outgoing, ()):
+        if key in st.session_state:
+            cache[key] = st.session_state[key]
+
+
+def _restore_page_inputs() -> None:
+    incoming = st.session_state.get("studio_section_widget", "Campaign")
+    if incoming == st.session_state.get("studio_rendered_section"):
+        return
+    cache = st.session_state.get("studio_input_cache", {})
+    for key in _PAGE_INPUT_KEYS.get(incoming, ()):
+        if key in cache:
+            st.session_state[key] = cache[key]
+
+
+def _navigate_section(section: str) -> None:
+    _remember_page_inputs()
+    st.session_state["studio_section_widget"] = section
+
+
+def _selected_product():
+    return get_product(st.session_state.get("active_product_id", DEFAULT_PRODUCT_ID))
+
+
+def _switch_product() -> None:
+    _remember_page_inputs()
+    ui_state.switch_product(st.session_state, st.session_state["product_selector"])
+
+
+@contextmanager
+def _operation_status(label: str, description: str):
+    with st.status(label + "...", expanded=True) as status:
+        st.write(description)
+        try:
+            yield
+        except Exception:
+            status.update(label=label + " failed. Previous work is retained.", state="error", expanded=True)
+            raise
+        else:
+            status.update(label=label + " completed.", state="complete", expanded=False)
+
+
+def _studio_index_status():
+    session = st.session_state.get(ui_state.PIPELINE_SESSION_KEY)
+    return _build_rag_context_provider().describe_status(
+        channel=session.channel if session else ui_state.DEFAULT_CHANNEL,
+        campaign_brief=session.campaign_brief if session else ui_state.DEFAULT_BRIEF,
+    )
+
+
+def _render_studio_overview(source_records) -> None:
+    status = _studio_index_status()
+    primary, secondary = _source_records_by_knowledge_base(source_records)
+    session = st.session_state.get(ui_state.PIPELINE_SESSION_KEY)
+    state = status.state if status.state in {"ready", "stale", "missing", "incompatible"} else "incompatible"
+    st.markdown(f'<p class="studio-overview-label" data-index-state="{state}">Studio overview</p>', unsafe_allow_html=True)
+    cols = st.columns(5)
+    with cols[0]:
+        with st.container(key="overview_index_metric"):
+            st.metric("RAG index", _rag_status_label(status))
+    cols[1].metric("Primary sources", len(primary))
+    cols[2].metric("Secondary sources", len(secondary))
+    cols[3].metric("Product style", _selected_product().style)
+    cols[4].metric("Loaded campaign", ui_state.channel_display_name(session.channel) if session else "Not loaded")
+    channel_cols = st.columns(3)
+    for col, channel in zip(channel_cols, ui_state.SUPPORTED_CHANNELS):
+        col.markdown(f"**{ui_state.channel_display_name(channel)}:** {ui_state.channel_status_label(st.session_state, channel)}")
+    if session and session.current_draft:
+        draft = session.current_draft
+        validation = validate_channel_format(session.channel, draft.channel_copy)
+        st.caption(f"Revision {draft.revision_number} | Context: {_draft_context_mode(draft)} | "
+                   f"Format: {'Pass' if validation.passed else 'Needs attention'} (advisory) | "
+                   f"Generation attempts remaining: {session.remaining_paid_attempts}/{session.max_paid_attempts}")
+    with st.expander("System details", expanded=False):
+        st.write(f"Selected product: {_selected_product().scope}")
+        st.write(f"Assigned sources for this product: {len(_selected_product().source_ids)}")
+        st.write(f"Embedding model: {status.embedding_model_id or 'Not configured'}")
+        st.write(f"Corpus snapshot: {status.corpus_snapshot_id or 'Unavailable'}")
+        st.write(f"Index: {status.index_path}")
+        st.write(f"Source inventory: {'Current' if ui_state.source_inventory_is_current(st.session_state) else 'Unavailable'}")
+        st.write(f"Source management: {'Enabled' if SOURCE_MANAGEMENT_ENABLED else 'Read-only'}")
+        st.write("Application context: RAG; existing legacy drafts retain their recorded context mode.")
+
+
+def _render_sources_page(source_records) -> None:
+    st.markdown("#### Sources")
+    st.caption("Primary sources support Patagonia claims. Secondary sources provide historical industry and competitor context.")
+    pool = st.radio("Knowledge base", ("All", "Primary", "Secondary"), horizontal=True, key="source_browser_pool")
+    records = tuple(record for record in source_records
+                    if pool == "All" or record.knowledge_base == pool.lower())
+    if not records:
+        st.info("No sources in this group.")
+    else:
+        by_id = {record.repository_relative_path: record for record in records}
+        if st.session_state.get("source_browser_selected") not in by_id:
+            st.session_state["source_browser_selected"] = next(iter(by_id))
+        selected = st.selectbox("Source to inspect", list(by_id), key="source_browser_selected",
+                                format_func=lambda key: by_id[key].document_title)
+        record = by_id[selected]
+        st.markdown(f"**{record.document_title}**")
+        assigned = [product.style for product in PRODUCTS.values() if selected in product.source_ids]
+        st.caption("Assigned product styles: " + (", ".join(assigned) if assigned else "Unassigned; excluded from prepared-product retrieval"))
+        st.caption(f"{record.knowledge_base.title()} | {record.publisher} | Accessed {record.accessed}")
+        for url in record.source_urls:
+            st.write(url)
+        try:
+            snapshot = source_registry.read_source(selected, REPO_ROOT)
+        except source_registry.SourceRegistryError:
+            st.error("Could not read this source. Refresh the source inventory before editing.")
+        else:
+            body = snapshot.document.markdown
+            section_start = re.search(r"^## ", body, re.MULTILINE)
+            body = body[section_start.start():] if section_start else body
+            body = re.sub(r"^#{1,3} ", "#### ", body, flags=re.MULTILINE)
+            with st.container(height=420, border=True):
+                st.markdown(body)
+        with st.expander("Source technical details", expanded=False):
+            st.write(f"Path: {selected}")
+            st.write(f"Published/updated: {record.published_updated}")
+            st.write(f"Evidence type: {record.evidence_type}")
+            st.write(f"Sections: {record.section_count} | Bytes: {record.source_bytes}")
+            st.write(f"Source hash: {record.source_hash}")
+    _render_manage_sources_area(source_records)
+
+
+def _render_index_page() -> None:
+    st.markdown("#### RAG index")
+    st.caption("Check compatibility offline. Building is a separate, explicitly confirmed action.")
+    try:
+        plan = rag_service.plan_rag_index_build(repo_root=REPO_ROOT)
+    except Exception:
+        st.error("Could not inspect the index. Check corpus and embedding configuration.")
+        return
+    _render_rag_index_status(_rag_index_status_from_build_plan(plan))
+    _render_rag_index_refresh_panel(plan)
+
+
+def _render_draft_summary(draft) -> None:
+    st.write(f"Revision {draft.revision_number} | Context: {_draft_context_mode(draft)} | {len(draft.channel_copy.split())} total words")
+    provenance = _draft_retrieval_provenance(draft) or {}
+    manifest = provenance.get("manifest", {})
+    metadata = getattr(draft, "response_metadata", None)
+    if metadata is not None:
+        generation_time = getattr(metadata, "elapsed_seconds", None)
+        retrieval_time = manifest.get("query_elapsed_seconds")
+        parts = []
+        if isinstance(retrieval_time, (int, float)):
+            parts.append(f"Retrieval: {retrieval_time:.3f}s")
+        if isinstance(generation_time, (int, float)):
+            parts.append(f"Generation: {generation_time:.3f}s")
+        if parts:
+            st.caption(" | ".join(parts))
+
+
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="wide", initial_sidebar_state="collapsed")
+    require_demo_access()
+    _bootstrap_rag_index_if_configured()
+    _restore_page_inputs()
     ui_state.initialize_state(st.session_state)
+    st.session_state.setdefault("active_product_id", DEFAULT_PRODUCT_ID)
+    # UI sessions created before the two-product extension belong to the original Nano Puff scope.
+    for channel in ui_state.SUPPORTED_CHANNELS:
+        existing_session = ui_state.get_channel_session(st.session_state, channel)
+        if existing_session is not None and getattr(existing_session, "product_id", None) is None:
+            existing_session.product_id = _selected_product().product_id
     _refresh_source_state()
     context_bundle = _ensure_context_bundle()
     source_records = ui_state.get_source_inventory(st.session_state) or ()
@@ -1073,14 +1284,30 @@ def main() -> None:
     _render_header_image()
     _render_responsive_layout_styles()
 
-    left_column, right_column = st.columns([0.9, 1.35], gap="large")
-    with left_column:
+    overview = st.container(key="studio_overview", gap="small")
+    st.session_state.setdefault("studio_section_widget", "Campaign")
+    st.radio("Studio section", ("Campaign", "Sources", "Index"),
+             key="studio_section_widget", horizontal=True, on_change=_remember_page_inputs)
+    section = st.session_state["studio_section_widget"]
+    st.session_state["studio_rendered_section"] = section
+    if section == "Sources":
+        _render_sources_page(source_records)
+    elif section == "Index":
+        _render_index_page()
+    else:
+        st.session_state["product_selector"] = _selected_product().product_id
+        st.selectbox("Product", tuple(PRODUCTS), format_func=lambda product_id: get_product(product_id).label,
+                     key="product_selector", on_change=_switch_product,
+                     disabled=ui_state.action_in_progress(st.session_state, "generation") or ui_state.action_in_progress(st.session_state, "revision"))
         _render_campaign_insights_and_brief()
-        _render_manage_sources_area(source_records)
-        _render_campaign_controls(context_bundle, current_source_signature)
+        left_column, right_column = st.columns([0.8, 1.65], gap="large")
+        with left_column:
+            _render_campaign_controls(context_bundle, current_source_signature)
+        with right_column:
+            _render_workspace()
+    with overview:
+        _render_studio_overview(ui_state.get_source_inventory(st.session_state) or ())
 
-    with right_column:
-        _render_workspace()
 
 
 def _ensure_context_bundle():
@@ -1102,6 +1329,11 @@ def _render_workspace() -> None:
     if session is None:
         st.markdown("#### Workspace")
         st.info("No campaign session is loaded yet.")
+        st.markdown("1. Choose a channel and check the brief.\n2. Select **Load campaign**.\n3. Generate, review and approve your draft.")
+        status = _studio_index_status()
+        if not _rag_status_is_ready(status):
+            st.warning("Generation needs a compatible RAG index. Open Index to check readiness.")
+            st.button("Open Index", key="empty_open_index", on_click=_navigate_section, args=("Index",))
         return
 
     ui_state.apply_pending_editor_sync(st.session_state, session.channel)
@@ -1142,7 +1374,8 @@ def _render_draft_panel(session: PipelineSession) -> None:
         st.info("No draft yet. Generate a draft from the controls on the left.")
         return
 
-    st.markdown("##### Publishable copy")
+    st.markdown("##### Draft copy")
+    _render_draft_summary(draft)
     st.markdown(draft.channel_copy)
     st.caption(f"Context mode: {_draft_context_mode(draft)}")
     if _draft_context_mode(draft) == "rag":
@@ -1196,6 +1429,7 @@ def _render_review_panel(session: PipelineSession) -> None:
     _render_approval_and_downloads(session)
 def _render_campaign_controls(context_bundle, current_source_signature) -> None:
     st.markdown("#### Campaign")
+    st.caption(f"Current product scope: {_selected_product().scope}")
     with st.form("campaign-form", clear_on_submit=False):
         st.selectbox(
             "Channel",
@@ -1260,7 +1494,9 @@ def _render_campaign_controls(context_bundle, current_source_signature) -> None:
                 ui_state.clear_pending_campaign_replacement(st.session_state)
                 st.session_state.pop(confirm_key, None)
 
-    st.caption(f"Channel statuses: {ui_state.campaign_status_summary(st.session_state)}")
+    selected = st.session_state.get(ui_state.CAMPAIGN_CHANNEL_INPUT_KEY)
+    if session is not None and selected != session.channel:
+        st.info(f"Selected: {ui_state.channel_display_name(selected)}. Loaded: {ui_state.channel_display_name(session.channel)}. Use Load campaign to switch.")
 
 
 def _load_or_activate_campaign(channel: str, brief: str, context_bundle, current_source_signature) -> str | None:
@@ -1276,7 +1512,7 @@ def _load_or_activate_campaign(channel: str, brief: str, context_bundle, current
     campaign_is_stale = ui_state.campaign_sources_are_stale(st.session_state, channel, current_source_signature)
 
     if loaded_brief is None:
-        session = existing_session or create_pipeline_session(channel, normalized_brief, context_bundle)
+        session = existing_session or create_pipeline_session(channel, normalized_brief, context_bundle, product_id=_selected_product().product_id)
         if existing_session is None:
             ui_state.install_campaign_session(
                 st.session_state,
@@ -1296,7 +1532,7 @@ def _load_or_activate_campaign(channel: str, brief: str, context_bundle, current
             ui_state.set_pending_campaign_replacement(st.session_state, channel=channel, brief=normalized_brief)
             return None
         if existing_session is None:
-            session = create_pipeline_session(channel, normalized_brief, context_bundle)
+            session = create_pipeline_session(channel, normalized_brief, context_bundle, product_id=_selected_product().product_id)
             ui_state.install_campaign_session(
                 st.session_state,
                 channel=channel,
@@ -1316,7 +1552,7 @@ def _load_or_activate_campaign(channel: str, brief: str, context_bundle, current
         return None
 
     ui_state.clear_runtime_state(st.session_state)
-    session = create_pipeline_session(channel, normalized_brief, context_bundle)
+    session = create_pipeline_session(channel, normalized_brief, context_bundle, product_id=_selected_product().product_id)
     ui_state.install_campaign_session(
         st.session_state,
         channel=channel,
@@ -1335,7 +1571,7 @@ def _confirm_campaign_replacement(context_bundle, current_source_signature) -> N
     channel = pending_replacement["channel"]
     brief = pending_replacement["brief"]
     try:
-        candidate_session = create_pipeline_session(channel, brief, context_bundle)
+        candidate_session = create_pipeline_session(channel, brief, context_bundle, product_id=_selected_product().product_id)
     except ContentPipelineError as exc:
         _show_error(exc)
         return
@@ -1357,7 +1593,8 @@ def _render_generation_controls(session: PipelineSession) -> None:
     source_signature = ui_state.get_source_inventory_signature(st.session_state)
     source_stale = ui_state.campaign_sources_are_stale(st.session_state, session.channel, source_signature)
     rag_status = _get_rag_index_status(session)
-    _render_rag_index_status(rag_status)
+    if not _rag_status_is_ready(rag_status):
+        _render_rag_index_status(rag_status)
     if source_stale:
         st.warning("This campaign was prepared from an older source snapshot. Refresh the campaign from current sources before generating or revising.")
     generate_disabled = (
@@ -1389,7 +1626,7 @@ def _run_generation(session: PipelineSession) -> None:
     provider = _build_rag_context_provider()
     ui_state.set_action_in_progress(st.session_state, "generation", True)
     try:
-        with st.spinner("Generating draft..."):
+        with _operation_status("Generating draft", "Retrieving product-scoped evidence and requesting a draft. Waiting for the service response."):
             draft = generate_initial_draft(session, context_provider=provider)
     except (ContentPipelineError, OpenAIIntegrationError, PromptTemplateError) as exc:
         _show_error(exc)
@@ -1422,7 +1659,7 @@ def _run_revision(session: PipelineSession, feedback: str) -> None:
     provider = _build_rag_context_provider()
     ui_state.set_action_in_progress(st.session_state, "revision", True)
     try:
-        with st.spinner("Revising draft..."):
+        with _operation_status("Revising draft", "Retrieving product-scoped evidence using your feedback and requesting a revision."):
             draft = revise_current_draft(session, feedback, context_provider=provider)
     except (ContentPipelineError, OpenAIIntegrationError, PromptTemplateError) as exc:
         _show_error(exc)

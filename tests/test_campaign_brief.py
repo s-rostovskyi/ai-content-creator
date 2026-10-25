@@ -13,7 +13,7 @@ from src.campaign_brief import _build_section_excerpt, load_campaign_brief_snaps
 def test_campaign_brief_snapshot_separates_primary_and_secondary_sources() -> None:
     snapshot = load_campaign_brief_snapshot(REPO_ROOT)
 
-    assert len(snapshot.primary_sources) == 4
+    assert len(snapshot.primary_sources) == 5
     assert len(snapshot.secondary_sources) == 2
 
     for card in snapshot.primary_sources:
@@ -80,7 +80,7 @@ def test_prepare_campaign_brief_is_deterministic_and_keeps_historical_context_se
     assert proposal.angle_key == "packability"
     assert proposal.angle_label == "Packability"
     assert proposal.source_provenance_summary == (
-        "Source snapshot: 4 Patagonia sources and 2 historical industry references are available."
+        "Source snapshot: 5 Patagonia sources and 2 historical industry references are available."
     )
     assert proposal.source_supported_focus == (
         "The product page describes the jacket as lightweight and highly compressible.",

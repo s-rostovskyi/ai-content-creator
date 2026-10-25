@@ -48,6 +48,7 @@ def build_prompt(
     feedback: str = "",
     *,
     context_mode: str = "full_corpus",
+    product_id: str | None = None,
 ) -> PromptParts:
     """Build trusted instructions and separately delimited untrusted input."""
 
@@ -67,6 +68,12 @@ def build_prompt(
     template = _load_template(channel)
     _validate_template(template, channel)
     trusted_instructions = _trusted_template_instructions(template, channel)
+    if product_id is not None:
+        from src.product_catalog import get_product
+        product = get_product(product_id)
+        trusted_instructions += (f"\nSelected product: {product.scope}. "
+                                 "Use only this product's supplied evidence. Never transfer another product's "
+                                 "features, materials, care or weather-protection claims.\n")
     user_input_text = _render_user_input(
         campaign_brief=campaign_brief,
         primary_context=context.primary_context,

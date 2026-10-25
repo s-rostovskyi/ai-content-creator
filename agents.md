@@ -26,6 +26,7 @@
 - Never invent a model ID; use the configured value only.
 
 # Repo map
+- `src/product_catalog.py` - two prepared product profiles, default briefs and explicit source assignments.
 - `src/document_processor.py` - ingest Markdown fixtures and preserve source metadata.
 - `knowledge_base/primary/` - verified primary Patagonia Markdown sources.
 - `knowledge_base/secondary/` - secondary trend and competitor Markdown sources.
@@ -68,7 +69,8 @@
 - Human action is required for approval and export of approved content.
 - The third teammate reviews or pairs; maximum two active cards team-wide.
 - Each coding task must be tied to one Trello card, the relevant Must IDs, and a clearly assigned file scope.
-- Fresh clones need an explicitly built compatible `.rag` index before UI RAG generation or revision can run.
+- Fresh clones need a compatible `.rag` index (explicitly built, or restored from a validated prepared seed) before UI RAG generation or revision can run.
+- Prepared product sessions use source filtering before ranking, require selected-product factual evidence, and retain separate channel/editor/approval/export state per product. New source uploads are excluded until deliberately assigned in `src/product_catalog.py`. Never transfer product facts between styles.
 
 # Definition of done
 - Artifacts required by the Trello card are present.

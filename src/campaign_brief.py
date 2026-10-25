@@ -104,8 +104,20 @@ ANGLE_OPTIONS: tuple[CampaignAngleOption, ...] = (
 ANGLE_OPTIONS_BY_KEY = {option.key: option for option in ANGLE_OPTIONS}
 
 
-def get_campaign_angle_options() -> tuple[CampaignAngleOption, ...]:
-    return ANGLE_OPTIONS
+def get_campaign_angle_options(product_id: str | None = None) -> tuple[CampaignAngleOption, ...]:
+    if product_id in (None, "nano_puff_84212"):
+        return ANGLE_OPTIONS
+    from src.product_catalog import get_product
+    product = get_product(product_id)
+    return tuple(CampaignAngleOption(
+        key=option.key,
+        label={"packability": "Rain shell pack-away", "practical_details": "Rain protection details", "care_repair": "Product care"}[option.key],
+        description="Use only the selected product's prepared source.",
+        source_supported_focus=(product.focus if option.key != "care_repair" else
+                                ("Use only the wash/care instructions in the selected product source.",)),
+        editorial_guidance=("Do not transfer facts or care instructions from other products.",
+                            "Do not imply verified repair eligibility without supporting evidence."),
+    ) for option in ANGLE_OPTIONS)
 
 
 def load_campaign_brief_snapshot(repo_root: str | Path | None = None) -> CampaignBriefSnapshot:
@@ -124,6 +136,8 @@ def prepare_campaign_brief(
     angle_key: str,
     audience: str,
     objective: str,
+    *,
+    product_id: str | None = None,
 ) -> CampaignBriefProposal:
     normalized_audience = audience.strip()
     normalized_objective = objective.strip()
@@ -132,7 +146,9 @@ def prepare_campaign_brief(
     if not normalized_objective:
         raise ValueError("objective must be a non-empty string.")
 
-    angle = _get_angle_option(angle_key)
+    angle = next((option for option in get_campaign_angle_options(product_id) if option.key == angle_key), None)
+    if angle is None:
+        raise ValueError("Unknown campaign angle.")
     source_provenance_summary = (
         f"Source snapshot: {len(snapshot.primary_sources)} Patagonia sources and {len(snapshot.secondary_sources)} historical industry references are available."
     )
@@ -143,6 +159,9 @@ def prepare_campaign_brief(
         objective=normalized_objective,
         source_supported_focus=source_supported_focus,
     )
+    if product_id is not None:
+        from src.product_catalog import get_product
+        proposed_brief = f"Product: {get_product(product_id).scope}\n\n{proposed_brief}"
     return CampaignBriefProposal(
         angle_key=angle.key,
         angle_label=angle.label,

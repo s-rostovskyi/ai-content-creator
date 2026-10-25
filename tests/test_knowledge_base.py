@@ -41,19 +41,20 @@ def _write_document(path: Path, knowledge_base: str, title: str = "Example") -> 
 def test_real_corpus_context_bundle_has_expected_counts_and_manifest_order() -> None:
     bundle = assemble_context_bundle(REPO_ROOT)
 
-    assert bundle.corpus_measurements.primary_document_count == 4
+    assert bundle.corpus_measurements.primary_document_count == 5
     assert bundle.corpus_measurements.secondary_document_count == 2
-    assert bundle.corpus_measurements.total_document_count == 6
+    assert bundle.corpus_measurements.total_document_count == 7
     assert [entry.repository_relative_path for entry in bundle.source_manifest] == [
         "knowledge_base/primary/brand_voice.md",
         "knowledge_base/primary/past_content/examples.md",
         "knowledge_base/primary/product_facts.md",
         "knowledge_base/primary/repair_and_reuse.md",
+        "knowledge_base/primary/torrentshell_85241.md",
         "knowledge_base/secondary/competitor_context.md",
         "knowledge_base/secondary/market_trends.md",
     ]
-    assert all(entry.knowledge_base == "primary" for entry in bundle.source_manifest[:4])
-    assert all(entry.knowledge_base == "secondary" for entry in bundle.source_manifest[4:])
+    assert all(entry.knowledge_base == "primary" for entry in bundle.source_manifest[:5])
+    assert all(entry.knowledge_base == "secondary" for entry in bundle.source_manifest[5:])
     assert bundle.primary_context.startswith("# Patagonia evidence")
     assert bundle.secondary_context.startswith("# Industry/competitor evidence")
 
@@ -87,8 +88,8 @@ def test_primary_and_secondary_evidence_remain_separate() -> None:
     assert "# Patagonia evidence" in bundle.primary_context
     assert "# Industry/competitor evidence" in bundle.secondary_context
     assert bundle.primary_context != bundle.secondary_context
-    assert all(entry.knowledge_base == "primary" for entry in bundle.source_manifest[:4])
-    assert all(entry.knowledge_base == "secondary" for entry in bundle.source_manifest[4:])
+    assert all(entry.knowledge_base == "primary" for entry in bundle.source_manifest[:5])
+    assert all(entry.knowledge_base == "secondary" for entry in bundle.source_manifest[5:])
 
 
 @pytest.mark.parametrize("empty_side", ["primary", "secondary"])

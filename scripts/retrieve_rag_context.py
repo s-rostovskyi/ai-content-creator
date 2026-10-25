@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from src.product_catalog import PRODUCTS
 from src.rag_retrieval import (
     DEFAULT_MAX_CONTEXT_CHARACTERS,
     DEFAULT_PRIMARY_MINIMUM_SIMILARITY,
@@ -82,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="RAG retrieval orchestrator")
     parser.add_argument("--live", action="store_true", help="perform the live retrieval request")
     parser.add_argument("--channel", required=True, help="target content channel")
+    parser.add_argument("--product", choices=tuple(PRODUCTS), default=None, help="restrict retrieval to a prepared product; omitted retains legacy unscoped mode")
     parser.add_argument("--brief", required=True, help="shared campaign brief")
     parser.add_argument("--feedback", default="", help="optional revision feedback")
     parser.add_argument("--index-path", type=Path, default=None, help="override the runtime index path")
@@ -146,10 +148,13 @@ def main(argv: list[str] | None = None) -> int:
         "secondary_minimum_similarity": resolved_secondary_minimum_similarity,
         "max_context_characters": resolved_max_context_characters,
     }
+    if args.product is not None:
+        service_kwargs["product_id"] = args.product
     if resolved_timeout_seconds is not None:
         service_kwargs["timeout_seconds"] = resolved_timeout_seconds
 
     retrieval_settings = {
+        "product_id": args.product,
         "primary_top_k": resolved_primary_top_k,
         "secondary_top_k": resolved_secondary_top_k,
         "primary_minimum_similarity": resolved_primary_minimum_similarity,

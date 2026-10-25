@@ -75,3 +75,10 @@ These measurements come from the historical full-context Instagram smoke test pr
 - The smoke test used the same fixed corpus and a single live Instagram request.
 - The evidence records `gpt-5.4-mini-2026-03-17`, 3,683 input tokens, 547 output tokens, 4,230 total tokens, and 6.347893500002101 seconds of latency.
 - These measurements describe one smoke test only and do not prove production fit, token-window fit, or benchmark performance.
+
+
+## Prepared-product retrieval extension (2026-10-25)
+
+The owner authorized two prepared products for the demo. The shared SQLite index now has a larger canonical corpus: five primary and two secondary documents. Product profiles explicitly assign source IDs; the search filters these before cosine ranking, lexical reranking and top-k selection. No new vector database or dependency is introduced. Torrentshell uses a separate official product snapshot; Nano Puff-specific editorial, care and competitor references cannot cross into its candidates. A selected product needs its own factual source in the final evidence context, otherwise retrieval blocks. Product identity is retained in new retrieval/generation/export metadata and trusted instructions.
+
+These are offline-verified safeguards, not measured new-product output quality or a controlled benchmark. The new source invalidates the earlier active corpus snapshot and deployment seed; update embeddings only through the existing explicit paid-build confirmation, then package a new compatible seed offline. Historical evidence, including the 17-reused/3-recomputed refresh, remains unchanged and tied to its recorded earlier snapshots. Unassigned uploads remain excluded until reviewed source assignments are added to the catalogue.

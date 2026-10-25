@@ -155,6 +155,7 @@ class LiveRagContextProvider(GenerationContextProvider):
                 channel=session.channel,
                 campaign_brief=session.campaign_brief,
                 revision_feedback=revision_feedback,
+                product_id=getattr(session, "product_id", None),
                 embedding_model_id=self._resolved_embedding_model_id(),
                 settings=self._openai_settings,
                 client=self._client,
@@ -175,14 +176,12 @@ class LiveRagContextProvider(GenerationContextProvider):
         if result.blocked_reason is not None or result.context_bundle is None:
             raise RagContextBlockedError(result.blocked_reason or "RAG retrieval did not produce usable primary evidence.")
 
+        provenance = build_rag_retrieval_evidence_payload(result, channel=session.channel, retrieval_settings=self._retrieval_settings())
+        provenance["product_id"] = getattr(session, "product_id", None)
         return ResolvedGenerationContext(
             context_mode="rag",
             prompt_context=result.context_bundle,
-            retrieval_provenance=build_rag_retrieval_evidence_payload(
-                result,
-                channel=session.channel,
-                retrieval_settings=self._retrieval_settings(),
-            ),
+            retrieval_provenance=provenance,
         )
 
     def _resolved_embedding_model_id(self) -> str | None:

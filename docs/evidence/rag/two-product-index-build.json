@@ -1,0 +1,39 @@
+{
+  "recorded_at_utc": "2026-10-25T22:33:40.398750+00:00",
+  "activity": "owner-authorized live incremental embedding build and offline seed packaging",
+  "corpus_snapshot_id": "e2ab88df5679fb9accb6937fa9b7c94ece8d30fc2b962ee82841f9385e6c202e",
+  "embedding_model_id": "text-embedding-3-small",
+  "vector_dimensions": 1536,
+  "chunk_count": 23,
+  "source_count": 7,
+  "reused_embedding_count": 20,
+  "embedded_chunk_count": 3,
+  "build_elapsed_seconds": 2.634059,
+  "completed_batches": [
+    {
+      "chunk_ids": [
+        "knowledge_base/primary/torrentshell_85241.md::001::patagonia-men-s-torrentshell-3l-rain-jacket-style-85241-relevant-facts::facts::001::4b4759b1bc3faba8",
+        "knowledge_base/primary/torrentshell_85241.md::002::patagonia-men-s-torrentshell-3l-rain-jacket-style-85241-content-implications::editorial::001::87ec09785a492871",
+        "knowledge_base/primary/torrentshell_85241.md::003::patagonia-men-s-torrentshell-3l-rain-jacket-style-85241-limitations::limitations::001::5dc13f1e0521014f"
+      ],
+      "elapsed_seconds": 2.490054,
+      "input_character_sizes": [
+        2162,
+        1904,
+        2008
+      ],
+      "requested_model": "text-embedding-3-small",
+      "returned_model": "text-embedding-3-small",
+      "total_input_characters": 6074,
+      "usage": {
+        "prompt_tokens": 1583,
+        "total_tokens": 1583
+      },
+      "vector_dimensions": 1536
+    }
+  ],
+  "seed_path": "deploy/rag_index_seed_two_products.sqlite3",
+  "seed_sha256": "dff2897ffa36608261e75a5822135a23a3847f7ad4e5599a0159571825a63283",
+  "deployment_status": "pending",
+  "live_generation_acceptance": "not established by index build"
+}

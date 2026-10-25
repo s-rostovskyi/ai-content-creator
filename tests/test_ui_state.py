@@ -223,3 +223,23 @@ def test_workspace_view_state_is_channel_scoped_and_resets_with_runtime_state() 
 
     ui_state.clear_runtime_state(state)
     assert ui_state.workspace_view_key("linkedin") not in state
+
+
+def test_switch_product_restores_channel_approval_export_and_feedback():
+    from types import SimpleNamespace
+    state = {}
+    ui_state.initialize_state(state)
+    session = SimpleNamespace(channel="instagram", current_draft=object(), approval=object())
+    ui_state.store_channel_session(state, channel="instagram", session=session, source_signature=("nano",))
+    state[ui_state.export_record_key("instagram")] = "nano-export"
+    state[ui_state.editor_working_copy_key("instagram")] = "pending copy"
+    state[ui_state.revision_feedback_working_key("instagram")] = "pending feedback"
+    ui_state.switch_product(state, "torrentshell_85241")
+    assert ui_state.get_channel_session(state, "instagram") is None
+    assert "85241" in state[ui_state.CAMPAIGN_BRIEF_INPUT_KEY]
+    ui_state.switch_product(state, "nano_puff_84212")
+    assert ui_state.get_channel_session(state, "instagram") is session
+    assert session.approval is not None
+    assert state[ui_state.export_record_key("instagram")] == "nano-export"
+    assert state[ui_state.editor_working_copy_key("instagram")] == "pending copy"
+    assert state[ui_state.revision_feedback_working_key("instagram")] == "pending feedback"

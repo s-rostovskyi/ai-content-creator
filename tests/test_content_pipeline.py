@@ -673,3 +673,24 @@ def test_unknown_channel_is_rejected_before_generation() -> None:
 
     with pytest.raises(ContentPipelineError):
         create_pipeline_session("twitter", BRIEF, context_bundle)
+
+
+def test_prepared_product_identity_survives_edit_approval_export_and_blocks_fallback(tmp_path):
+    product_id = "torrentshell_85241"
+    context = _make_rag_prompt_context()
+    session = create_pipeline_session("instagram", "Introduce 85241", context, product_id=product_id)
+    calls = []
+    with pytest.raises(ContentPipelineError, match="no full-corpus fallback"):
+        generate_initial_draft(session, generation_function=lambda **kwargs: pytest.fail("must not call generation"))
+    session.paid_attempts_used = 0
+    provider = _FakeContextProvider(prompt_context=context, context_mode="rag", retrieval_provenance={"product_id": product_id})
+    generate_initial_draft(session, context_provider=provider,
+                           generation_function=_fake_generator_factory([_generated_text("### CHANNEL COPY\nRain shell details.\n### REVIEWER NOTES\nSource: 85241.")], calls))
+    assert "Selected product:" in calls[0]["instructions"]
+    assert "85241" in calls[0]["instructions"]
+    edit_current_draft(session, "Edited rain shell details.", revised_reviewer_notes="Reviewed source 85241.")
+    approve_current_draft(session, approved_copy=session.current_draft.channel_copy, approved_revision=session.current_draft.revision_number, reviewer_name="Test reviewer")
+    exported = export_approved_current_draft(session, output_directory=tmp_path)
+    payload = json.loads(exported.json_path.read_text(encoding="utf-8"))
+    assert payload["product_id"] == product_id
+    assert payload["retrieval_provenance"]["product_id"] == product_id

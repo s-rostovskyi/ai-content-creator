@@ -1,4 +1,4 @@
-﻿import json
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,9 +31,9 @@ def test_dry_run_builds_prompt_from_real_corpus_and_skips_generation(monkeypatch
     assert called["generation"] is False
     report = json.loads(output[0])
     assert report["mode"] == "dry-run"
-    assert report["corpus_measurements"]["primary_document_count"] == 4
+    assert report["corpus_measurements"]["primary_document_count"] == 5
     assert report["corpus_measurements"]["secondary_document_count"] == 2
-    assert report["corpus_measurements"]["total_document_count"] == 6
+    assert report["corpus_measurements"]["total_document_count"] == 7
     assert "Test brief for dry run." in report["prompt"]["user_input_text"]
 
 

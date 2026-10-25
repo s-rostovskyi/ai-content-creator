@@ -4,6 +4,7 @@
 - **Goal:** deliver an English-only Patagonia content studio in Python/Streamlit that drafts Instagram, LinkedIn, and email newsletter content from curated Markdown knowledge bases, then routes output through human review, revision, and export without inventing facts.
 - **Dates:** October 22-23, 2026.
 - **Initial product:** Patagonia Men's Nano Puff Jacket, style 84212.
+- **Owner-authorized demo extension (2026-10-25):** a second prepared product, Men's Torrentshell 3L Rain Jacket (85241), with explicit source filtering and separate per-product channel work. New-product live acceptance and refreshed deployment seed remain pending.
 - **Canonical source:** https://www.patagonia.com/product/mens-nano-puff-insulated-jacket/84212.html
 - **Market/source scope:** US website, English content.
 - **Channels:** Instagram, LinkedIn, email newsletter.
@@ -42,7 +43,7 @@
 
 | Must | Proposed files | Verification |
 |---|---|---|
-| **M1 - Both Markdown KBs ingested with source metadata** | `src/document_processor.py`, `knowledge_base/primary/`, `knowledge_base/secondary/` | Loader tests confirm 4 primary and 2 secondary documents, metadata preservation, section hierarchy, and source-line tracking. |
+| **M1 - Both Markdown KBs ingested with source metadata** | `src/document_processor.py`, `knowledge_base/primary/`, `knowledge_base/secondary/` | Loader tests now cover 5 primary and 2 secondary documents (the baseline had 4 primary), metadata preservation, section hierarchy, and source-line tracking. |
 | **M2 - Bounded deterministic context assembly using both KBs** | `src/knowledge_base.py` | Context bundle returns separate primary and secondary context strings, a source manifest, and measured corpus data with deterministic ordering. |
 | **M3 - Real configurable OpenAI integration** | `src/llm_integration.py` | Live smoke test produced a real response with usage capture; offline tests cover configuration errors, sanitized failures, and no-retry behavior. |
 | **M4 - Three channel templates** | `src/prompt_templates.py`, `templates/instagram.md`, `templates/linkedin.md`, `templates/email.md` | Channel templates enforce the three formats and support the evaluation comparison and format validation. |
@@ -81,3 +82,8 @@ This WBS keeps the original October 22-23 plan as the baseline. The owner later 
 
 # 7. Bridge to RAG decision
 Marketing quality needs still require source-grounded content, but the architecture now supports both the historical deterministic baseline and the authorized RAG path. Streamlit uses the RAG provider for owner-facing generation, while `src.main` still exercises the full-corpus historical path for comparison and evaluation. The owner-reviewed RAG evidence now includes Instagram, LinkedIn, and email across different runs and corpus snapshots, but those examples remain owner checks rather than independent all-channel acceptance or a controlled benchmark. The generic-versus-contextual comparison remains historical non-RAG evidence; it documents the previous full-context experiment and should not be treated as RAG acceptance. The fixed post-Revise stale display was validated offline, but a new live browser revision retest was not performed. Revisit the balance between the two paths only if the corpus grows enough that fixed inclusion becomes unwieldy, request diversity outgrows the fixed bundle, retrieval blocking becomes too frequent, or the manual review burden of the current workflow becomes too high.
+
+
+## Two-product demo extension
+
+Cards 5.1 / 4.3 (UI/pipeline) and 6.1 (deployment readiness), Musts M4/M5/M7/M8: `src/product_catalog.py` owns the two profiles and source allowlists; `src/rag_index.py` filters source IDs before ranking; `src/rag_retrieval.py` requires selected-product factual evidence; `src/ui_state.py` retains product-owned channel state; `app.py` exposes selection, overview status and native animated operation panels. The seven-document corpus requires an explicit index refresh and a new validated deployment seed. Existing evidence is preserved under its original snapshots; offline product isolation is not new live or peer acceptance. Render and presentation remain separate later activities.

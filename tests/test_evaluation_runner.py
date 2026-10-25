@@ -77,8 +77,8 @@ def test_paired_prompts_keep_conditions_separate_and_share_settings() -> None:
     plans, contextual_bundle = build_request_plans(REPO_ROOT)
     paired = {(plan.channel, plan.condition): plan for plan in plans}
 
-    assert contextual_bundle.corpus_measurements.total_document_count == 6
-    assert len(contextual_bundle.source_manifest) == 6
+    assert contextual_bundle.corpus_measurements.total_document_count == 7
+    assert len(contextual_bundle.source_manifest) == 7
 
     for channel in EVALUATION_BRIEFS:
         generic = paired[(channel, "generic")]
@@ -89,8 +89,8 @@ def test_paired_prompts_keep_conditions_separate_and_share_settings() -> None:
         assert generic.settings["timeout_seconds"] == contextual.settings["timeout_seconds"] == DEFAULT_TIMEOUT_SECONDS
         assert generic.corpus_identity is None
         assert contextual.corpus_identity is not None
-        assert contextual.corpus_identity["corpus_measurements"]["total_document_count"] == 6
-        assert len(contextual.corpus_identity["source_manifest"]) == 6
+        assert contextual.corpus_identity["corpus_measurements"]["total_document_count"] == 7
+        assert len(contextual.corpus_identity["source_manifest"]) == 7
         assert "Verified source context is unavailable" in generic.prompt.user_input_text
         assert "Verified source context is unavailable" not in contextual.prompt.user_input_text
 
@@ -184,7 +184,7 @@ def test_result_rendering_preserves_prompts_and_response_payload(tmp_path: Path,
     assert first_record.parsed["reviewer_notes"] == "instagram generic notes 1"
     assert first_record.corpus_identity is None
     assert second_record.corpus_identity is not None
-    assert second_record.corpus_identity["corpus_measurements"]["total_document_count"] == 6
+    assert second_record.corpus_identity["corpus_measurements"]["total_document_count"] == 7
 
     rendered = json.loads(render_run_json(result))
     assert rendered["planned_requests"] == 6

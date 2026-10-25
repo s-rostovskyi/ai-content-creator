@@ -1,6 +1,6 @@
 # Patagonia Content Studio
 
-Patagonia Content Studio is an unofficial educational prototype that combines company brand-content generation with a multi-channel content pipeline. It is scoped to one product and one market slice for the course project: Patagonia Men's Nano Puff Jacket, style 84212, on the US site in English.
+Patagonia Content Studio is an unofficial educational prototype that combines company brand-content generation with a multi-channel content pipeline. The Streamlit demo offers two prepared products on the US site in English: Men's Nano Puff Jacket (84212) and Men's Torrentshell 3L Rain Jacket (85241). The original course baseline and preserved live acceptance evidence concern Nano Puff.
 
 The goal is to help a marketing team move from a curated source snapshot to channel-ready drafts for Instagram, LinkedIn, and email, then through human review, feedback, manual editing, explicit approval, and Markdown/JSON export. It is a publication-ready export workflow, not automatic posting.
 
@@ -68,6 +68,30 @@ python -m src.main --channel instagram --brief "..."
 
 The CLI shares pipeline primitives with the UI, but `src.main` currently uses full-corpus context without the RAG provider. Streamlit uses explicit RAG retrieval; the separate retrieval CLI below exercises retrieval without content generation. CLI live mode shows the draft, reviewer notes, and explicit review actions; quit never implies approval or export.
 
+## Studio navigation
+
+The shared overview shows index readiness, corpus-wide primary/secondary source counts, selected product style, the loaded channel and each channel's status for the active product. Once a draft exists it also shows the saved revision, context mode, advisory format result and remaining generation attempts. Model, snapshot and index paths are under **System details**.
+
+- **Campaign** starts with the prepared product selector, then contains brief preparation and compact campaign controls beside the Draft/Edit/Review workspace. Loading and generation remain explicit actions.
+- **Sources** filters the corpus and displays one selected document in a bounded reader. Source create/edit/delete controls are grouped under **Manage sources** and retain the existing mutation gate.
+- **Index** contains offline inspection/preview and the last build result. Builds require enabled source management and explicit charge confirmation; read-only deployments can inspect a preview without building.
+
+Navigation within the same browser session preserves channel work, saved revisions, editor buffers, feedback and each channel's workspace view. A full browser refresh/reconnection can still lose session state; native rerenders do not guarantee scroll-position retention.
+
+## Two prepared products
+
+`src/product_catalog.py` defines the two supported product profiles, default briefs and explicit source assignments. Nano Puff keeps its four primary/two secondary source assignments. Torrentshell uses its dedicated official-product snapshot only; the mixed Nano Puff brand/editorial, repair and competitor documents are deliberately excluded. Primary/secondary counts in the overview describe the entire corpus, not how many documents a request retrieved. System details and the source reader show assignments.
+
+Switching products saves/restores each product's channel sessions, editor buffers, feedback, approvals, export records and workspace views within the browser session. Loading a campaign and generating remain separate explicit actions. Preparation angles use the selected product's features, rather than reusing Nano Puff's stuffsack, insulation or care language.
+
+The product's source allowlist is applied **before cosine ranking and top-k selection** in the same SQLite index. Retrieval blocks when the dedicated product facts are missing or no selected-product fact fits the evidence budget. Product identity appears in the trusted generation/revision instructions, query, retrieval provenance and new JSON exports. Prepared product sessions cannot silently fall back to full-corpus context. Older artifacts without product identity remain historical records; they are not relabeled or rewritten.
+
+For retrieval-only inspection, use `python scripts/retrieve_rag_context.py --product torrentshell_85241 --channel instagram --brief "Introduce the rain shell"`. This is an offline planner unless `--live` is explicitly added. Omitting `--product` retains the retrieval CLI's legacy unscoped mode; `src.main` is also the historical unscoped full-context path. Use Streamlit for the prepared-product demo.
+
+Adding the Torrentshell document changes the global corpus snapshot. The old index and deployment seed must be refreshed/repackaged explicitly before the new corpus can generate on Render. No automatic embedding repair occurs. Current two-product verification is offline; previous owner-approved live exports remain Nano Puff evidence. New uploads are visible to the source browser but are excluded from prepared-product retrieval until deliberately assigned in the catalogue. This is a two-product demo, not an automatic product-onboarding system.
+
+Generation, revision and index builds display native animated status panels with elapsed work represented as running/completed/error states, not invented percentages or progress estimates. They describe the operation actually being awaited. Completion means the operation returned successfully, not that content was factually approved; format checks remain advisory.
+
 ## RAG workflow
 
 Fresh clones do not contain a `.rag/` index. RAG generation and revision therefore require an explicit index preparation step before the retrieval-backed path is usable.
@@ -96,7 +120,41 @@ Run live retrieval only when you want the retrieval result and optional evidence
 python scripts/retrieve_rag_context.py --channel instagram --brief "..." --live --save-evidence <path>
 ```
 
-The retrieval script keeps `--save-evidence` live-only. The Streamlit UI previews and builds the index explicitly, reuses compatible embeddings, and blocks missing, stale, or incompatible indexes instead of silently falling back to full-context generation. Any hosted deployment would need durable storage for the managed sources, the `.rag/` index, and exported artifacts; this repository does not claim one.
+The retrieval script keeps `--save-evidence` live-only. The Streamlit UI previews and builds the index explicitly, reuses compatible embeddings, and blocks missing, stale, or incompatible indexes instead of silently falling back to full-context generation. Durable hosted source editing would need persistent storage for sources, the index and exports. The free read-only demo instead uses the prepared-seed recovery path below; no hosted deployment has yet been verified.
+
+### Offline seed for a temporary Render demo
+
+Card 6.1 / Musts M5, M8: package the existing compatible index without loading credentials or making embedding calls:
+
+```bash
+python scripts/package_rag_index_seed.py --seed-path deploy/rag_index_seed.sqlite3 --embedding-model text-embedding-3-small --vector-dimensions 1536
+```
+
+This performs a logical copy of validated corpus/vector records into a fresh SQLite file, excluding deleted pages and unrelated database payloads. It refuses an existing destination; choose a new filename when replacing a seed. The active index is never modified by packaging. The seed is a deliberate deployment artifact outside ignored `.rag/`, containing public KB text and vectors, not generation history or secrets. Inspect and approve it separately before Git publication. Regenerate it offline after changing the canonical corpus or embedding configuration.
+
+Opt in at startup with `RAG_INDEX_BOOTSTRAP_SEED_PATH=deploy/rag_index_seed.sqlite3`, `OPENAI_EMBEDDING_MODEL=text-embedding-3-small` and `RAG_INDEX_VECTOR_DIMENSIONS=1536`. Relative seed paths resolve against the repository root; override dimensions if the prepared embeddings use another dimension. No `.env` is read by the packaging/bootstrap service or command. Normal application startup retains its existing repo-root `.env` behavior. With no seed-path setting, local startup is unchanged.
+
+Before readiness checks, startup preserves a compatible runtime index or validates and atomically restores the seed to `.rag/rag_index.sqlite3`. Missing, corrupt, stale, model/dimension/version-mismatched seeds block startup when restoration is needed; they never cause an automatic paid rebuild or full-context fallback. The SQLite file is portable across Windows/Linux; runtime paths are resolved on the destination host. A compatible runtime index can be reused even if the seed is unavailable.
+
+Free-host files are ephemeral: restarts/redeploys can discard runtime index and exports. The approved seed must travel with each deployment so restoration is offline; download exports before restart. Hosted source mutation/index management must remain disabled (`SOURCE_MANAGEMENT_ENABLED=false`). This is a read-only-source demo, not durable hosted CRUD. Render startup/port configuration is prepared in `render.yaml` and `scripts/render_start.py`; publication and hosted verification remain pending. Follow [the Render runbook](docs/deployment/render.md); no deployment is claimed here.
+
+### Shared-password demo access
+
+For the hosted demo, set `DEMO_ACCESS_ENABLED=true` and a strong, unique `DEMO_PASSWORD` privately in Render Environment. Never commit the password or use an API key as the password. Local behavior is unchanged when the gate is disabled. When enabled without a nonblank password, the app blocks access.
+
+The gate runs before index bootstrap, corpus loading and application controls. Login uses a password field and server-side constant-time comparison; the submitted password is removed from session state. A session-bound verifier allows reruns without retaining the plaintext password. Password changes invalidate existing authentication on the next rerun. Sign out clears campaign/editor state as well as authentication; reconnecting or refreshing can require login again.
+
+Five failed attempts trigger a one-minute per-session cooldown. After waiting, refresh/reconnect the page if the button is still disabled; there is no automatic timer or sleeping server thread. This is a shared demo password, not individual user accounts, a global brute-force defense or a global API-spend cap. Share the link/password only with intended reviewers and disable the service after the demonstration if it is no longer needed. Keep `SOURCE_MANAGEMENT_ENABLED=false` on the hosted demo; the password does not authorize public source mutations or index builds.
+
+### Render startup configuration
+
+`render.yaml` is a reproducible Blueprint reference: Python 3.14.7, Free Web Service, Frankfurt, `main`, manual deploys, and Streamlit health checks. When using the dashboard form already in progress, copy these settings rather than creating a second service. The file does not automatically apply to a manually configured service.
+
+Build: `python -m pip install -r requirements.txt`. Start: `python scripts/render_start.py`.
+
+The guarded start command requires password access, disables hosted source/index mutation, validates the packaged seed even if an existing runtime index is compatible, and restores/reuses the runtime index offline **before the HTTP server starts**. It then binds Streamlit to `0.0.0.0:$PORT`. Missing configuration or an invalid seed exits without starting the server or repairing embeddings. `python scripts/render_start.py --check` runs the same offline validation/restoration without starting Streamlit; use a disposable copy for checks, not the canonical worktree.
+
+Use `RAG_INDEX_BOOTSTRAP_SEED_PATH=deploy/rag_index_seed_two_products.sqlite3` for the validated compatible two-product seed. The authorized live refresh embedded 3 new chunks and reused 20; the resulting 23-chunk seed is packaged for publication. The old local seed is stale and must not be deployed. See [build measurements](docs/evidence/rag/two-product-index-build.json). Keep API key, generation model and demo password private in Render Environment. The native `/_stcore/health` endpoint indicates server liveness, not successful API generation or reviewed content. Offline tests and local Windows HTTP checks do not establish Linux/Render acceptance. Dependencies still use lower bounds, so a clean hosted dependency build remains a required check.
 
 ## Evaluation commands
 
