@@ -36,7 +36,9 @@
 
 # 4. Requirements -> implementation
 - **Use case:** the team needs a small, reviewable content studio that can take verified Patagonia source material, assemble bounded context, generate channel-specific drafts, and support human approval before export.
-- **Won't:** no automated social publishing; no auth, database, scheduling, or vector database unless measurement proves they are necessary.
+- **Won't:** no automated social publishing.
+- **Won't:** no auth or scheduling in the original MVP.
+- **Baseline note:** the original MVP did not require a hosted database or remote vector service; the later owner-authorized SQLite RAG index is a separate local expansion, not the baseline.
 
 | Must | Proposed files | Verification |
 |---|---|---|
@@ -50,18 +52,25 @@
 | **M8 - Planning files and board alignment** | `agents.md`, `project_structure.md`, `README.md`, `docs/evidence/` | Planning closure, evidence links, and board alignment are documented before any new development card starts. |
 
 # 5. WBS (2 levels)
-1. **Planning alignment** - Owner: Sergii; Reviewer: Martha; Must: M8; Dependencies: none; Verification: `project_structure.md`, `agents.md`, and the board rules are aligned; planning closure precedes development cards; Day 1/Day 2 timing: D1 AM.
-2. **Primary KB** - Owner: Sandra; Reviewer: Martha; Must: M1; Dependencies: none; Verification: Markdown structure, source URLs, access dates, factual grounding, and primary/secondary separation are reviewed for the primary KB; Day 1/Day 2 timing: D1 AM.
-3. **Secondary KB** - Owner: Martha; Reviewer: Sandra; Must: M1; Dependencies: none; Verification: Markdown structure, source URLs, access dates, factual grounding, and primary/secondary separation are reviewed for the secondary KB; Day 1/Day 2 timing: D1 AM.
-4. **Markdown ingestion** - Owner: Sergii; Reviewer: Sandra; Must: M1; Dependencies: 2 and 3; Verification: loader integration is verified when both KB folders ingest successfully with metadata preserved; Day 1/Day 2 timing: D1 PM.
-5. **Context assembly and RAG assessment** - Owner: Sergii; Reviewer: Martha; Must: M2, M7; Dependencies: 4; Verification: repeatable source selection, separate primary and secondary context strings, source manifest, measured corpus data, the retrieval-backed bounded context path, and index preview/build evidence are recorded; Day 1/Day 2 timing: D1 PM.
-6. **OpenAI client** - Owner: Sergii; Reviewer: Martha; Must: M3; Dependencies: none; Verification: real response, missing-key/API errors, model configuration, and usage capture when available; Day 1/Day 2 timing: D1 PM.
-7. **Three channel templates** - Owner: Sandra; Reviewer: Martha; Must: M4; Dependencies: 2 and 3; Verification: Instagram, LinkedIn, and email templates enforce channel constraints and contain no unresolved placeholders; Day 1/Day 2 timing: D1 PM.
-8. **Pipeline, feedback, approval and export** - Owner: Sergii; Reviewer: Sandra; Must: M5; Dependencies: 5, 6, 7; Verification: full workflow works and a draft cannot be marked approved without human action; Day 1/Day 2 timing: D2 AM.
-9. **Streamlit interface** - Owner: Sergii; Reviewer: Martha; Must: M5; Dependencies: 8; Verification: loading, empty, error, success, per-channel workspace, source CRUD, RAG preview/build states, selected-view retention, and revision consistency appear in the UI; Day 1/Day 2 timing: D2 AM.
-10. **Generic-versus-contextual evaluation** - Owner: Martha; Reviewer: Sandra; Must: M6; Dependencies: 6, 7, 8; Verification: preserved run artifacts, prompts, settings, raw outputs, and source-grounded review exist for all three channels; Day 1/Day 2 timing: D2 AM.
-11. **Deployment attempt and runtime verification** - Owner: Sergii; Reviewer: Martha; Must: M5, M8; Dependencies: 9; Verification: optional deployment is attempted and runtime behavior is checked, but failure does not block final delivery; any hosted mutable source/index path would still need durable storage; Day 1/Day 2 timing: D2 PM.
-12. **Final docs, demo, and presentation** - Owner: Martha; Reviewers: Sergii and Sandra; Must: M7, M8; Dependencies: 9 and 10; Verification: docs, demo, board screenshots, the five-slide presentation, and preserved evidence links are complete; Day 1/Day 2 timing: D2 PM.
+This WBS keeps the original October 22-23 plan as the baseline. The owner later reported instructor-approved weekend completion; that changes schedule context only and does not add a new deadline.
+
+1. **Work package: Planning and source foundation**
+   - **Activity 1.1 Planning alignment** - Owner: Sergii; Reviewer: Martha; Must: M8; Dependencies: none; Verification: `project_structure.md`, `agents.md`, and the board rules are aligned; planning closure precedes development cards; Day 1/Day 2 timing: D1 AM.
+   - **Activity 1.2 Primary KB** - Owner: Sandra; Reviewer: Martha; Must: M1; Dependencies: none; Verification: Markdown structure, source URLs, access dates, factual grounding, and primary/secondary separation are reviewed for the primary KB; Day 1/Day 2 timing: D1 AM.
+   - **Activity 1.3 Secondary KB** - Owner: Martha; Reviewer: Sandra; Must: M1; Dependencies: none; Verification: Markdown structure, source URLs, access dates, factual grounding, and primary/secondary separation are reviewed for the secondary KB; Day 1/Day 2 timing: D1 AM.
+   - **Activity 1.4 Markdown ingestion** - Owner: Sergii; Reviewer: Sandra; Must: M1; Dependencies: 2 and 3; Verification: loader integration is verified when both KB folders ingest successfully with metadata preserved; Day 1/Day 2 timing: D1 PM.
+
+2. **Work package: Core generation, context, and comparison**
+   - **Activity 2.1 Context assembly and RAG assessment** - Owner: Sergii; Reviewer: Martha; Must: M2, M7; Dependencies: 4; Verification: repeatable source selection, separate primary and secondary context strings, source manifest, measured corpus data, the retrieval-backed bounded context path, and index preview/build evidence are recorded; Day 1/Day 2 timing: D1 PM.
+   - **Activity 2.2 OpenAI client** - Owner: Sergii; Reviewer: Martha; Must: M3; Dependencies: none; Verification: real response, missing-key/API errors, model configuration, and usage capture when available; Day 1/Day 2 timing: D1 PM.
+   - **Activity 2.3 Three channel templates** - Owner: Sandra; Reviewer: Martha; Must: M4; Dependencies: 2 and 3; Verification: Instagram, LinkedIn, and email templates enforce channel constraints and contain no unresolved placeholders; Day 1/Day 2 timing: D1 PM.
+   - **Activity 2.4 Pipeline, feedback, approval and export** - Owner: Sergii; Reviewer: Sandra; Must: M5; Dependencies: 5, 6, 7; Verification: full workflow works and a draft cannot be marked approved without human action; Day 1/Day 2 timing: D2 AM.
+
+3. **Work package: Interface, evaluation, and release**
+   - **Activity 3.1 Streamlit interface** - Owner: Sergii; Reviewer: Martha; Must: M5; Dependencies: 8; Verification: loading, empty, error, success, per-channel workspace, source CRUD, RAG preview/build states, selected-view retention, and revision consistency appear in the UI; Day 1/Day 2 timing: D2 AM.
+   - **Activity 3.2 Generic-versus-contextual evaluation** - Owner: Martha; Reviewer: Sandra; Must: M6; Dependencies: 6, 7, 8; Verification: preserved run artifacts, prompts, settings, raw outputs, and source-grounded review exist for all three channels; Day 1/Day 2 timing: D2 AM.
+   - **Activity 3.3 Render deployment attempt and runtime verification** - Owner: Sergii; Reviewer: Martha; Must: M5, M8; Dependencies: 9; Verification: local readiness checks come first; Render deployment is attempted and runtime behavior is checked, but failure does not block final delivery; any hosted mutable source/index path would still need durable storage; Day 1/Day 2 timing: D2 PM.
+   - **Activity 3.4 Final docs, demo, and presentation** - Owner: Martha; Reviewers: Sergii and Sandra; Must: M7, M8; Dependencies: 9 and 10; Verification: docs, demo, board screenshots, the five-slide presentation, and preserved evidence links are complete; Day 1/Day 2 timing: D2 PM.
 
 # 6. Risks
 | Risk | Probability | Impact | Strategy | Concrete response |

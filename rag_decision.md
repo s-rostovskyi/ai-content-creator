@@ -29,8 +29,8 @@
 - Sandra's independent ratings are recorded in `docs/evaluation/generic-vs-contextual-scorecard.md` for the historical six-response non-RAG run; Martha's separate ratings remain pending.
 - The comparison artifacts remain historical non-RAG evidence, not acceptance for the new RAG path.
 
-## Measurements from the current implementation
-These values are measured results from the current implementation, not promised benefits.
+## Historical Day 1 full-context smoke test
+These measurements come from the historical full-context Instagram smoke test preserved in `docs/evidence/rag/acceptance/README.md`. They describe one request from the old backend, not the current RAG path.
 
 | Metric | Value | Definition |
 |---|---|---|
@@ -46,28 +46,31 @@ These values are measured results from the current implementation, not promised 
 | API latency | 6.347893500002101 seconds | End-to-end elapsed time measured for the live Instagram smoke test request. |
 | API usage or cost | not calculated | Cost remains uncalculated and was not treated as an enforced budget cap. |
 
-## Expected benefits
-- The RAG path should keep retrieval bounded and reviewable while reusing compatible vectors for unchanged chunks.
-- The explicit preview/build flow should make index state and charge exposure visible before any paid embedding call.
-- The retrieval provenance should make it easier to explain which chunks supported a generated draft.
-- These benefits are design goals, not benchmark claims.
+## Current RAG evidence and refresh measurements
+- Owner-reviewed RAG examples exist for Instagram, LinkedIn, and email across different runs and corpus snapshots. These are owner checks, not independent all-channel peer acceptance or a controlled benchmark.
+- LinkedIn demonstrates one live RAG revision using prior copy and human feedback.
+- Email records a failed 140-word generated body followed by manual editing to the approved 157-word body.
+- The incremental source refresh reused 17 embeddings and recomputed 3, advancing from corpus snapshot `9349972665c952782b93afde17efc583f4f577019709d36d43b35d0523cf1e20` to `4984775f808b507cc6c77b5394d5e730a314e80a7da19da1ada8bc0cd1bcb531`; the refresh record preserves both snapshot identities.
+- The latest independently executed offline suite reported alongside this work was 239 passed, 1 skipped.
 
-## Revisit conditions
-- Revisit the architecture if the corpus grows enough that fixed inclusion becomes unwieldy or too large.
-- Revisit it if request diversity starts demanding source selection that a fixed bundle cannot cover.
-- Revisit it if measured token usage, latency, blocked retrieval frequency, or review burden makes the current approach inefficient.
-- Revisit it only after a measured generic-versus-contextual comparison is available.
+## Decision criteria
+- The original six-document corpus did not require vector RAG for the MVP; fixed corpus context injection was enough for that schedule.
+- The later transition was justified by authorized mutable sources and query-based retrieval, not by a claim of higher accuracy or lower cost.
+- The concrete criteria now favoring the RAG path are corpus size, source-update churn, query diversity, bounded context and latency, and implementation complexity.
+- The RAG path keeps context bounded and provenance explicit, but it also adds preview/build orchestration and an extra failure surface.
 
 ## Current status
 - The implemented RAG path is local, explicit, and gated by an index readiness check.
 - The historical full-context backend remains available for comparison and evaluation.
-- Owner-reviewed RAG examples now exist for Instagram, LinkedIn, and email across different runs and corpus snapshots. LinkedIn demonstrates one live RAG revision using prior copy and human feedback, and email records a failed 140-word generated body followed by manual editing to an approved 157-word body.
-- These are owner checks, not independent all-channel peer acceptance or a controlled RAG benchmark.
+- Historical acceptance boundaries remain the owner-run Instagram, LinkedIn, and email examples above; they are not independent all-channel peer acceptance.
 - Streamlit uses the RAG provider; `src.main` still uses full-corpus context for the historical CLI path.
-- The incremental source refresh reused 17 embeddings and recomputed 3, advancing from corpus snapshot `9349972665c952782b93afde17efc583f4f577019709d36d43b35d0523cf1e20` to `4984775f808b507cc6c77b5394d5e730a314e80a7da19da1ada8bc0cd1bcb531`; the refresh record preserves both snapshot identities.
-- The immediate post-Revise stale display was fixed and covered by offline tests; a new live browser revision retest was not performed.
-- Latest independently executed offline suite: 239 passed, 1 skipped.
 - No deployment or billing event has been performed by this decision record alone.
+
+## Future revisit conditions
+- The historical generic-versus-contextual comparison already exists and remains non-RAG evidence.
+- A future revisit should use fresh RAG measurements such as refresh cadence, blocked retrieval rate, chunk reuse, latency, token usage, source-update churn, and manual repair burden on representative prompts.
+- The decision can be revisited if the measured RAG workflow becomes slower, less stable, or harder to review than the current approach.
+
 ## Day 1 Instagram smoke test note
 - The smoke test used the same fixed corpus and a single live Instagram request.
 - The evidence records `gpt-5.4-mini-2026-03-17`, 3,683 input tokens, 547 output tokens, 4,230 total tokens, and 6.347893500002101 seconds of latency.
