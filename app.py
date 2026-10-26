@@ -636,10 +636,21 @@ def _show_rag_index_error(exc: Exception, *, action: str) -> None:
 
 
 
+def _index_builds_enabled() -> bool:
+    # Card 6.1 / M5, M8: explicit opt-in independent of source CRUD.
+    configured = os.getenv("RAG_INDEX_BUILD_ENABLED", "").strip().lower()
+    return configured == "true" if configured else SOURCE_MANAGEMENT_ENABLED
+
+
 def _run_rag_index_build(plan) -> None:
     _keep_manage_sources_expanded()
+    if not _index_builds_enabled():
+        raise rag_service.RagServiceError("Index building is unavailable in this deployment.")
     if not SOURCE_MANAGEMENT_ENABLED:
-        raise rag_service.RagServiceError("Source management is disabled in this deployment. Index building is unavailable.")
+        # Refresh at action time: a preview is not permission for new embedding requests.
+        plan = rag_service.plan_rag_index_build(repo_root=REPO_ROOT)
+        if plan.pending_embedding_count:
+            raise rag_service.RagServiceError("Read-only demo rebuilds only reuse existing embeddings. Restore a compatible prepared index; no embedding request was made.")
 
     preview_state = st.session_state.get(RAG_INDEX_PREVIEW_STATE_KEY)
     signature = _rag_index_preview_signature(plan)
@@ -655,8 +666,14 @@ def _run_rag_index_build(plan) -> None:
     ui_state.set_action_in_progress(st.session_state, RAG_INDEX_BUILD_ACTION_KEY, True)
     preview_plan = preview_state["plan"]
     try:
-        with _operation_status("Building RAG index", "Validating the corpus, reusing vectors and embedding missing inputs; then publishing atomically."):
-            result = rag_service.build_rag_index(repo_root=REPO_ROOT)
+        detail = ("Validating the corpus and rebuilding atomically from existing vectors only; no embedding requests."
+                  if not SOURCE_MANAGEMENT_ENABLED else
+                  "Validating the corpus, reusing vectors and embedding missing inputs; then publishing atomically.")
+        with _operation_status("Building RAG index", detail):
+            if SOURCE_MANAGEMENT_ENABLED:
+                result = rag_service.build_rag_index(repo_root=REPO_ROOT)
+            else:
+                result = rag_service.build_rag_index(repo_root=REPO_ROOT, allow_new_embeddings=False)
     except Exception as exc:  # noqa: BLE001
         _store_rag_index_build_summary(
             status=_rag_index_status_from_build_plan(plan),
@@ -710,12 +727,16 @@ def _render_rag_index_refresh_panel(plan) -> None:
 
     preview_plan = preview_state["plan"]
     _render_rag_index_preview_details(preview_plan)
-    if not SOURCE_MANAGEMENT_ENABLED:
+    if not _index_builds_enabled():
         st.info("Index builds are disabled in this deployment. The preview is offline and read-only.")
         return
-    st.caption("Building may incur embedding API charges.")
+    if not SOURCE_MANAGEMENT_ENABLED and preview_plan.pending_embedding_count:
+        st.warning("Read-only demo rebuilds only reuse existing embeddings. Restore a compatible prepared index before rebuilding. New embedding requests are blocked.")
+        return
+    reuse_only = not SOURCE_MANAGEMENT_ENABLED
+    st.caption("Rebuild uses existing vectors only; sources remain read-only and no embedding API requests are allowed." if reuse_only else "Building may incur embedding API charges.")
     confirmed = st.checkbox(
-        "I understand this build may incur embedding API charges.",
+        "I confirm rebuilding the index from existing vectors without changing sources." if reuse_only else "I understand this build may incur embedding API charges.",
         key=RAG_INDEX_BUILD_CONFIRM_KEY,
     )
     build_disabled = ui_state.action_in_progress(st.session_state, RAG_INDEX_BUILD_ACTION_KEY) or not confirmed
@@ -1201,6 +1222,7 @@ def _render_studio_overview(source_records) -> None:
         st.write(f"Index: {status.index_path}")
         st.write(f"Source inventory: {'Current' if ui_state.source_inventory_is_current(st.session_state) else 'Unavailable'}")
         st.write(f"Source management: {'Enabled' if SOURCE_MANAGEMENT_ENABLED else 'Read-only'}")
+        st.write(f"Index rebuilding: {'Enabled' if _index_builds_enabled() else 'Disabled'}" + (" (reuse only)" if _index_builds_enabled() and not SOURCE_MANAGEMENT_ENABLED else ""))
         st.write("Application context: RAG; existing legacy drafts retain their recorded context mode.")
 
 

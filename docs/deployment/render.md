@@ -27,7 +27,7 @@ Use the already connected `s-rostovskyi/ai-content-creator` repository. Do not c
 | Advanced health check path | `/_stcore/health` |
 | Automatic deploys | Off/manual while assembling and verifying the demo |
 
-Set `PYTHON_VERSION=3.14.7`, `SOURCE_MANAGEMENT_ENABLED=false`, `DEMO_ACCESS_ENABLED=true`, `OPENAI_EMBEDDING_MODEL=text-embedding-3-small`, `RAG_INDEX_VECTOR_DIMENSIONS=1536`, and `RAG_INDEX_BOOTSTRAP_SEED_PATH=deploy/rag_index_seed_two_products.sqlite3`.
+Set `PYTHON_VERSION=3.14.7`, `SOURCE_MANAGEMENT_ENABLED=false`, `RAG_INDEX_BUILD_ENABLED=true`, `DEMO_ACCESS_ENABLED=true`, `OPENAI_EMBEDDING_MODEL=text-embedding-3-small`, `RAG_INDEX_VECTOR_DIMENSIONS=1536`, and `RAG_INDEX_BOOTSTRAP_SEED_PATH=deploy/rag_index_seed_two_products.sqlite3`.
 
 Set `OPENAI_MODEL` to the owner's configured generation model; set `OPENAI_API_KEY` and a unique nonblank `DEMO_PASSWORD` privately in Render Environment. Do not upload a complete .env file or put real secret values in screenshots, Git or this runbook. Render supplies `PORT` (normally 10000); the startup script reads it and constructs the Streamlit command without shell interpolation.
 
@@ -45,8 +45,16 @@ Free-host disk state is ephemeral. The packaged seed must be included in the dep
 
 - Record deployed commit, runtime/Python version, actual URL, date and logs without secrets.
 - Confirm the login gate; incorrect password must not expose workspace controls.
-- After authorized login, confirm read-only sources, disabled index builds and a Ready compatible index; inspect actual source/chunk provenance.
+- After authorized login, confirm read-only sources, explicitly confirmed reuse-only rebuilds and a Ready compatible index; inspect actual source/chunk provenance.
 - Make only separately authorized paid generation/revision requests. Review format and factual limitations, approve the exact saved revision and verify Markdown/JSON exports.
 - Confirm fresh startup can recover the prepared index without embedding calls. Record failures honestly; do not replace missing live or peer acceptance with offline tests.
 
 Official references: [Render web services](https://render.com/docs/web-services), [Python version selection](https://render.com/docs/python-version), [Blueprint fields](https://render.com/docs/blueprint-spec), [Free service limits](https://render.com/docs/free).
+
+## Read-only source demo with explicit index rebuild
+
+Card 6.1 / M5, M8: `RAG_INDEX_BUILD_ENABLED=true` enables the index build UI independently of source CRUD. Keep `SOURCE_MANAGEMENT_ENABLED=false`; startup continues to reject hosted source mutation. Empty/unset build flag retains the earlier local source-management default, while explicit false disables builds.
+
+On Render, this opt-in only permits rebuilding from existing compatible vectors. Preview and checkbox confirmation remain mandatory; server-side and backend checks reject missing embeddings before requests and preserve the active index on failure. A zero-batch rebuild proves the explicit rebuilding/reuse/activation path, not new embedding computation. The earlier recorded build remains clearly labelled historical evidence. Test new-embedding updates locally on a disposable source copy, then prepare a new compatible deployment seed if canonical sources change.
+
+The shared password restricts demo access; it does not provide individual admin roles. Read-only canonical sources keep the evidence reproducible and avoid relying on ephemeral hosting for edits. The packaged seed makes restart recovery independent of embedding API availability and avoids automatic embedding charges. Generation/revision still use authorized API requests. All runtime rebuild output and session exports remain subject to ephemeral storage.

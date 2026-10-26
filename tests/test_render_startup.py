@@ -181,3 +181,13 @@ def test_isolated_streamlit_http_startup_smoke(prepared):
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=5)
+
+
+def test_hosted_startup_allows_reuse_rebuild_opt_in_with_sources_read_only(prepared, monkeypatch):
+    root, _ = prepared
+    monkeypatch.setenv("RAG_INDEX_BUILD_ENABLED", "true")
+    command = render_start.prepare_render_startup(root)
+    assert "--server.port=18765" in command
+    monkeypatch.setenv("SOURCE_MANAGEMENT_ENABLED", "true")
+    with pytest.raises(render_start.RenderStartupError, match="source mutations"):
+        render_start.prepare_render_startup(root)

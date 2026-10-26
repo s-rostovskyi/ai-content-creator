@@ -31,6 +31,7 @@ SECONDARY_URL = "https://example.com/secondary"
 @pytest.fixture(autouse=True)
 def _default_source_management_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SOURCE_MANAGEMENT_ENABLED", "false")
+    monkeypatch.delenv("RAG_INDEX_BUILD_ENABLED", raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -2648,3 +2649,45 @@ def test_recorded_index_build_is_historical_and_flags_another_snapshot(monkeypat
     assert {m.label: m.value for m in at.metric} == {"Total chunks": "23", "Reused embeddings": "20", "New embeddings": "3"}
     assert any("not a new build on Render" in i.value for i in at.info)
     assert any("different corpus snapshot" in w.value for w in at.warning)
+
+
+def test_read_only_demo_can_confirm_reuse_only_rebuild_without_source_mutations(tmp_path, monkeypatch):
+    monkeypatch.setenv("RAG_INDEX_BUILD_ENABLED", "true")
+    calls = []
+    def plan_provider(*, repo_root):
+        return _make_rag_build_plan(repo_root, reusable_embedding_count=6, pending_embedding_count=0, planned_batches=())
+    def build_provider(*, repo_root, allow_new_embeddings):
+        calls.append(allow_new_embeddings)
+        result = _make_rag_build_result(repo_root)
+        result.embedded_chunk_count = 0
+        result.reused_embedding_count = 6
+        result.completed_batches = ()
+        return result
+    at, root, module = _make_rag_index_app_test(monkeypatch, tmp_path, plan_provider=plan_provider,
+        build_provider=build_provider, enable_source_management=False)
+    _on_page(at, "Index").button(key="rag_index_preview_button").click().run()
+    assert at.button(key="rag_index_build_button").disabled
+    assert calls == []
+    at.checkbox(key=module.RAG_INDEX_BUILD_CONFIRM_KEY).check().run()
+    at.button(key="rag_index_build_button").click().run()
+    assert not at.exception
+    assert calls == [False]
+    assert at.session_state[module.RAG_INDEX_BUILD_CONFIRM_KEY] is False
+    _on_page(at, "Sources")
+    assert any("Source management is read-only" in i.value for i in at.info)
+    assert not any(b.key == "source_create_apply_button" for b in at.button)
+
+
+def test_read_only_rebuild_blocks_missing_vectors_in_ui_and_handler(tmp_path, monkeypatch):
+    monkeypatch.setenv("RAG_INDEX_BUILD_ENABLED", "true")
+    def plan_provider(*, repo_root):
+        return _make_rag_build_plan(repo_root)
+    def never_build(**kwargs):
+        pytest.fail("Missing vectors must not reach builder")
+    at, root, module = _make_rag_index_app_test(monkeypatch, tmp_path, plan_provider=plan_provider,
+        build_provider=never_build, enable_source_management=False)
+    _on_page(at, "Index").button(key="rag_index_preview_button").click().run()
+    assert any("New embedding requests are blocked" in w.value for w in at.warning)
+    assert not any(b.key == "rag_index_build_button" for b in at.button)
+    with pytest.raises(rag_service.RagServiceError, match="only reuse existing embeddings"):
+        module._run_rag_index_build(plan_provider(repo_root=root))

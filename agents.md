@@ -22,6 +22,7 @@
 - `OPENAI_MODEL`.
 - `OPENAI_EMBEDDING_MODEL`.
 - `SOURCE_MANAGEMENT_ENABLED`.
+- `RAG_INDEX_BUILD_ENABLED` — independent UI rebuild opt-in; read-only source mode permits existing-vector reuse only.
 - The application key is owner-funded and local to the environment; it is separate from Codex authentication and must not be committed.
 - Never invent a model ID; use the configured value only.
 

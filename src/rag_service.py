@@ -285,6 +285,7 @@ def build_rag_index(
     max_input_characters: int = DEFAULT_MAX_INPUT_CHARACTERS,
     max_total_characters: int = DEFAULT_MAX_TOTAL_CHARACTERS,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    allow_new_embeddings: bool = True,
 ) -> RagBuildResult:
     _validate_timeout_seconds(timeout_seconds)
     if settings is None:
@@ -312,6 +313,8 @@ def build_rag_index(
     vectors_by_chunk_id: dict[str, tuple[float, ...]] = dict(compatible_vectors)
     completed_batches: list[RagBatchResult] = []
     pending_inputs = [chunk_input for chunk_input in chunk_inputs if chunk_input.chunk.chunk_id not in compatible_vectors]
+    if pending_inputs and not allow_new_embeddings:
+        raise IndexBuildError("Reuse-only rebuild needs compatible vectors for every chunk. No embedding request was made; existing index preserved.")
     batch_plans = plan_embedding_batches(
         [(chunk_input.chunk.chunk_id, chunk_input.input_text) for chunk_input in pending_inputs],
         max_batch_size=max_batch_size,

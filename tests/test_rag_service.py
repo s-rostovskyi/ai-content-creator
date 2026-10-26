@@ -481,3 +481,23 @@ def test_seed_restores_in_another_checkout(seed_setup, tmp_path):
     assert result.restored
     assert result.runtime_index_path == other / ".rag" / "rag_index.sqlite3"
     assert open_vector_index(result.runtime_index_path).records == open_vector_index(runtime).records
+
+
+def test_reuse_only_rebuild_makes_no_embedding_calls_and_preserves_index_on_missing_vectors(tmp_path, monkeypatch):
+    import src.rag_service as service
+    _build_corpus(tmp_path)
+    settings = OpenAIEmbeddingSettings(api_key="test-key", model="offline-model")
+    index_path = tmp_path / ".rag/rag_index.sqlite3"
+    build_rag_index(repo_root=tmp_path, settings=settings, client=_FakeEmbeddingsClient(model="offline-model"))
+    monkeypatch.setattr(service, "embed_texts", lambda *a, **k: pytest.fail("Reuse-only mode called embeddings"))
+    result = build_rag_index(repo_root=tmp_path, settings=settings, allow_new_embeddings=False)
+    assert result.reused_embedding_count == 6
+    assert result.embedded_chunk_count == 0
+    assert result.completed_batches == ()
+    before = index_path.read_bytes()
+    source = next((tmp_path / "knowledge_base/primary").rglob("*.md"))
+    with source.open("a", encoding="utf-8") as f:
+        f.write("\n- Additional fixture fact.\n")
+    with pytest.raises(IndexBuildError, match="No embedding request"):
+        build_rag_index(repo_root=tmp_path, settings=settings, allow_new_embeddings=False)
+    assert index_path.read_bytes() == before

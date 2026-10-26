@@ -27,7 +27,7 @@ def prepare_render_startup(repo_root: Path = REPO_ROOT) -> list[str]:
     if not os.getenv("DEMO_PASSWORD", "").strip():
         raise RenderStartupError("Set a nonblank DEMO_PASSWORD privately in Render Environment.")
     if os.getenv("SOURCE_MANAGEMENT_ENABLED", "").strip().lower() not in ("", "false"):
-        raise RenderStartupError("Hosted source mutations and index builds must be disabled: SOURCE_MANAGEMENT_ENABLED=false.")
+        raise RenderStartupError("Hosted source mutations must be disabled: SOURCE_MANAGEMENT_ENABLED=false. Explicit reuse-only rebuilds use RAG_INDEX_BUILD_ENABLED.")
     for name in ("OPENAI_MODEL", "OPENAI_API_KEY", "OPENAI_EMBEDDING_MODEL", "RAG_INDEX_VECTOR_DIMENSIONS"):
         if not os.getenv(name, "").strip():
             raise RenderStartupError(f"Set {name} in Render Environment.")

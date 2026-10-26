@@ -16,6 +16,8 @@ services:
         value: 3.14.7
       - key: SOURCE_MANAGEMENT_ENABLED
         value: 'false'
+      - key: RAG_INDEX_BUILD_ENABLED
+        value: 'true'
       - key: DEMO_ACCESS_ENABLED
         value: 'true'
       - key: OPENAI_EMBEDDING_MODEL

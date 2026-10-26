@@ -74,7 +74,7 @@ The shared overview shows index readiness, corpus-wide primary/secondary source 
 
 - **Campaign** starts with the prepared product selector, then contains brief preparation and compact campaign controls beside the Draft/Edit/Review workspace. Loading and generation remain explicit actions.
 - **Sources** filters the corpus and displays one selected document in a bounded reader. Source create/edit/delete controls are grouped under **Manage sources** and retain the existing mutation gate.
-- **Index** contains offline inspection/preview and the last build result. Builds require enabled source management and explicit charge confirmation; read-only deployments can inspect a preview without building.
+- **Index** contains offline inspection/preview and the last build result. Builds require preview and explicit confirmation. `RAG_INDEX_BUILD_ENABLED=true` independently enables rebuilds; with source management disabled they can only reuse existing vectors and cannot request new embeddings. When unset, the local build gate inherits source management.
 
 Navigation within the same browser session preserves channel work, saved revisions, editor buffers, feedback and each channel's workspace view. A full browser refresh/reconnection can still lose session state; native rerenders do not guarantee scroll-position retention.
 
@@ -136,7 +136,7 @@ Opt in at startup with `RAG_INDEX_BOOTSTRAP_SEED_PATH=deploy/rag_index_seed.sqli
 
 Before readiness checks, startup preserves a compatible runtime index or validates and atomically restores the seed to `.rag/rag_index.sqlite3`. Missing, corrupt, stale, model/dimension/version-mismatched seeds block startup when restoration is needed; they never cause an automatic paid rebuild or full-context fallback. The SQLite file is portable across Windows/Linux; runtime paths are resolved on the destination host. A compatible runtime index can be reused even if the seed is unavailable.
 
-Free-host files are ephemeral: restarts/redeploys can discard runtime index and exports. The approved seed must travel with each deployment so restoration is offline; download exports before restart. Hosted source mutation/index management must remain disabled (`SOURCE_MANAGEMENT_ENABLED=false`). This is a read-only-source demo, not durable hosted CRUD. Render startup/port configuration is prepared in `render.yaml` and `scripts/render_start.py`; publication and hosted verification remain pending. Follow [the Render runbook](docs/deployment/render.md); no deployment is claimed here.
+Free-host files are ephemeral: restarts/redeploys can discard runtime index and exports. The approved seed must travel with each deployment so restoration is offline; download exports before restart. Hosted source mutations must remain disabled (`SOURCE_MANAGEMENT_ENABLED=false`). Explicit reuse-only index rebuilds may be enabled separately with `RAG_INDEX_BUILD_ENABLED=true`. This is a read-only-source demo, not durable hosted CRUD. Render startup/port configuration is prepared in `render.yaml` and `scripts/render_start.py`; publication and hosted verification remain pending. Follow [the Render runbook](docs/deployment/render.md); no deployment is claimed here.
 
 ### Shared-password demo access
 
@@ -144,7 +144,7 @@ For the hosted demo, set `DEMO_ACCESS_ENABLED=true` and a strong, unique `DEMO_P
 
 The gate runs before index bootstrap, corpus loading and application controls. Login uses a password field and server-side constant-time comparison; the submitted password is removed from session state. A session-bound verifier allows reruns without retaining the plaintext password. Password changes invalidate existing authentication on the next rerun. Sign out clears campaign/editor state as well as authentication; reconnecting or refreshing can require login again.
 
-Five failed attempts trigger a one-minute per-session cooldown. After waiting, refresh/reconnect the page if the button is still disabled; there is no automatic timer or sleeping server thread. This is a shared demo password, not individual user accounts, a global brute-force defense or a global API-spend cap. Share the link/password only with intended reviewers and disable the service after the demonstration if it is no longer needed. Keep `SOURCE_MANAGEMENT_ENABLED=false` on the hosted demo; the password does not authorize public source mutations or index builds.
+Five failed attempts trigger a one-minute per-session cooldown. After waiting, refresh/reconnect the page if the button is still disabled; there is no automatic timer or sleeping server thread. This is a shared demo password, not individual user accounts, a global brute-force defense or a global API-spend cap. Share the link/password only with intended reviewers and disable the service after the demonstration if it is no longer needed. Keep `SOURCE_MANAGEMENT_ENABLED=false` on the hosted demo; the password does not authorize source mutations. An owner may opt into explicit reuse-only index rebuilds with `RAG_INDEX_BUILD_ENABLED=true`; every build still requires a fresh preview and confirmation, and missing vectors block before embedding requests.
 
 ### Render startup configuration
 
@@ -152,7 +152,7 @@ Five failed attempts trigger a one-minute per-session cooldown. After waiting, r
 
 Build: `python -m pip install -r requirements.txt`. Start: `python scripts/render_start.py`.
 
-The guarded start command requires password access, disables hosted source/index mutation, validates the packaged seed even if an existing runtime index is compatible, and restores/reuses the runtime index offline **before the HTTP server starts**. It then binds Streamlit to `0.0.0.0:$PORT`. Missing configuration or an invalid seed exits without starting the server or repairing embeddings. `python scripts/render_start.py --check` runs the same offline validation/restoration without starting Streamlit; use a disposable copy for checks, not the canonical worktree.
+The guarded start command requires password access, disables hosted source mutation, validates the packaged seed even if an existing runtime index is compatible, and restores/reuses the runtime index offline **before the HTTP server starts**. It then binds Streamlit to `0.0.0.0:$PORT`. Missing configuration or an invalid seed exits without starting the server or repairing embeddings. `python scripts/render_start.py --check` runs the same offline validation/restoration without starting Streamlit; use a disposable copy for checks, not the canonical worktree.
 
 Use `RAG_INDEX_BOOTSTRAP_SEED_PATH=deploy/rag_index_seed_two_products.sqlite3` for the validated compatible two-product seed. The authorized live refresh embedded 3 new chunks and reused 20; the resulting 23-chunk seed is packaged for publication. The old local seed is stale and must not be deployed. See [build measurements](docs/evidence/rag/two-product-index-build.json). Keep API key, generation model and demo password private in Render Environment. The native `/_stcore/health` endpoint indicates server liveness, not successful API generation or reviewed content. Offline tests and local Windows HTTP checks do not establish Linux/Render acceptance. Dependencies still use lower bounds, so a clean hosted dependency build remains a required check.
 
@@ -233,3 +233,11 @@ Implemented behavior includes Markdown ingestion, deterministic context assembly
 Latest independently executed offline suite after the Review-panel revision fix: **239 passed, 1 skipped** in 121.56 seconds. The skipped test requires Windows symlink creation unavailable in the verification environment. The focused source-discovery/registry run was separately reported as 18 passed, 1 skipped; these are distinct runs, not additive totals.
 
 Not deployed: there has been no production deployment from this repo. Remaining course work, if any, should be tracked on the board rather than implied by the codebase.
+
+### Explicit reuse-only rebuild on Render
+
+Keep `SOURCE_MANAGEMENT_ENABLED=false` and set `RAG_INDEX_BUILD_ENABLED=true` in Render Environment. The Blueprint reference includes this non-secret setting, but existing manually configured services must add it themselves. Deploy the updated startup/app code, then use Index -> Preview index update -> confirm -> Build/update index.
+
+This rebuilds and atomically publishes the runtime index using compatible existing vectors only. On an unchanged 23-chunk corpus the expected result is 23 reused, 0 newly embedded and 0 API batches; inspect the actual result rather than treating the preview as execution evidence. Missing vectors, a changed model or an incompatible index block reuse-only rebuilding before any embedding call. Restore a compatible prepared seed or perform an explicitly authorized local update and package a new seed. The backend rechecks vector availability independently of the preview.
+
+Sources remain read-only, password protection remains required, and startup still restores/reuses the prepared seed offline. Rebuilds are explicit runtime operations, not automatic startup repairs or persistent source editing. Free-host files/session exports remain ephemeral. This is a demo safeguard, not individual administrative roles, a global spending cap or a concurrency management service.
