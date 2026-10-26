@@ -1,5 +1,6 @@
 markdown-it-py>=3.0.0
 openai>=2.54.0
+brotlicffi>=1.2.0.0
 python-dotenv>=1.2.2
 pytest>=9.0.0
 streamlit>=1.51.0
