@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import base64
+import hashlib
+import json
 import os
 import re
 from contextlib import contextmanager
@@ -105,6 +107,15 @@ section[data-testid="stMain"] .block-container { padding-top: 2rem; }
 .st-key-studio_overview:has([data-index-state="incompatible"]) .st-key-overview_index_metric [data-testid="stMetricValue"] {
   color: color-mix(in srgb, currentColor 60%, #bf665d 40%);
 }
+.st-key-current_result {
+  background: rgba(106,137,157,0.09); border: 1px solid rgba(119,144,162,0.28);
+  border-radius: 0.875rem; padding: 0.85rem 1rem;
+}
+.st-key-current_result [data-testid="stMetricValue"] { font-size: 1.25rem; font-weight: 650; }
+.st-key-current_result [data-testid="stMarkdownContainer"] p { margin-bottom: 0; }
+.st-key-current_result [data-testid="stVerticalBlock"] { gap: 0.6rem; }
+.st-key-current_result .result-good { font-weight: 650; color: color-mix(in srgb,currentColor 55%,#469078 45%); }
+.st-key-current_result .result-attention { font-weight: 650; color: color-mix(in srgb,currentColor 55%,#b38635 45%); }
 @media (max-width: 800px) {
   section[data-testid="stMain"] div[data-testid="stHorizontalBlock"] {
     flex-direction: column;
@@ -1243,7 +1254,80 @@ def _render_index_page() -> None:
         st.error("Could not inspect the index. Check corpus and embedding configuration.")
         return
     _render_rag_index_status(_rag_index_status_from_build_plan(plan))
+    cols = st.columns(3)
+    cols[0].metric("Corpus chunks", plan.chunk_count)
+    cols[1].metric("Reusable embeddings", plan.reusable_embedding_count)
+    cols[2].metric("Pending embeddings", plan.pending_embedding_count)
+    _render_recorded_index_build(plan)
     _render_rag_index_refresh_panel(plan)
+
+
+def _render_current_result(session: PipelineSession) -> None:
+    """Card 5.1 / Musts M5, M7: metrics follow saved state after action handlers."""
+    draft = session.current_draft
+    if draft is None:
+        return
+    validation = validate_channel_format(draft.channel, draft.channel_copy)
+    approval = session.approval
+    approved = (approval is not None and approval.approved_revision == draft.revision_number
+                and approval.approved_copy_fingerprint == hashlib.sha256(draft.channel_copy.encode("utf-8")).hexdigest())
+    st.markdown("**Current result**")
+    st.markdown(f"**{_draft_context_mode(draft).upper()} | Revision {draft.revision_number} | "
+                f"{'Approved' if approved else 'Not approved'}**")
+    evidence, context, format_col = st.columns(3)
+    provenance = _draft_retrieval_provenance(draft)
+    if _draft_context_mode(draft) == "rag" and provenance:
+        measurements = provenance.get("measurements", {})
+        chunks = provenance.get("included_chunks", ())
+        sources = {_mapping_value(item, "repository_relative_path", "")
+                   for item in getattr(draft, "source_manifest", ())}
+        sources.discard("")
+        source_count = measurements.get("included_source_count", len(sources))
+        count = measurements.get("primary_selected_count", 0) + measurements.get("secondary_selected_count", 0)
+        facts = measurements.get("primary_fact_count", 0) + measurements.get("secondary_fact_count", 0)
+        editorial = sum(_mapping_value(chunk, "chunk_kind") == "editorial" for chunk in chunks)
+        evidence.metric("Retrieved evidence", f"{source_count} {'source' if source_count == 1 else 'sources'}")
+        evidence.markdown(f"**{count} chunks | {facts} factual | {editorial} editorial**")
+        used = measurements.get("serialized_context_characters")
+        budget = measurements.get("max_serialized_characters")
+        if isinstance(used, int) and isinstance(budget, int) and budget > 0:
+            context.metric("RAG context (chars)", f"{used:,} / {budget:,}")
+            context.markdown("**Within budget**" if used <= budget else "**Over budget**")
+        else:
+            context.metric("RAG context", "Unavailable")
+        st.markdown("**Retrieved sources:** " + (", ".join(f"`{path}`" for path in sorted(sources)) or "Not recorded"))
+    else:
+        evidence.metric("Retrieved evidence", "Not recorded")
+        context.metric("RAG context", "Not recorded")
+    with format_col:
+        st.metric("Format (advisory)", "Pass" if validation.passed else "Needs attention")
+        tone = "result-good" if validation.passed else "result-attention"
+        st.markdown(f'<span class="{tone}">{format_validation_summary(validation)}</span>', unsafe_allow_html=True)
+    st.caption("Sources describe retrieved evidence, not a claim that every passage was used. Format checks do not verify factual accuracy.")
+    if ui_state.editor_is_dirty(st.session_state, session.channel):
+        st.warning(f"Unsaved edits: these metrics and approval describe saved revision {draft.revision_number}. Save edits to update them.")
+
+
+def _render_recorded_index_build(plan) -> None:
+    """Card 6.1: preserved build evidence is distinct from a hosted runtime build."""
+    path = REPO_ROOT / "docs/evidence/rag/two-product-index-build.json"
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        counts = [record[name] for name in ("chunk_count", "reused_embedding_count", "embedded_chunk_count")]
+        if any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in counts):
+            return
+    except (OSError, ValueError, KeyError, TypeError):
+        return
+    with st.expander("Recorded index build (before deployment)", expanded=False):
+        st.info("Historical build evidence, not a new build on Render. Viewing it makes no API calls.")
+        cols = st.columns(3)
+        for col, label, count in zip(cols, ("Total chunks", "Reused embeddings", "New embeddings"), counts):
+            col.metric(label, count)
+        st.write(f"Recorded at: {record.get('recorded_at_utc', 'Unavailable')}")
+        st.write(f"Build snapshot: {record.get('corpus_snapshot_id', 'Unavailable')}")
+        if record.get("corpus_snapshot_id") != plan.corpus_snapshot.snapshot_id:
+            st.warning("This historical build belongs to a different corpus snapshot.")
+        st.caption("Ready confirms compatibility. Startup restores the prepared seed offline; it does not re-embed sources.")
 
 
 def _render_draft_summary(draft) -> None:
@@ -1347,6 +1431,7 @@ def _render_workspace() -> None:
         st.write("Brief:")
         st.write(session.campaign_brief)
 
+    result_slot = st.empty()
     workspace_view_key = ui_state.workspace_view_key(session.channel)
     workspace_view_widget_key = ui_state.workspace_view_widget_key(session.channel)
     if st.session_state.get(workspace_view_key) not in ui_state.WORKSPACE_VIEWS:
@@ -1366,6 +1451,11 @@ def _render_workspace() -> None:
         _render_manual_editor(session)
     else:
         _render_draft_panel(session)
+    # Earlier visual slot, populated after save/revise/approve handlers have run.
+    if session.current_draft is not None:
+        with result_slot.container():
+            with st.container(key="current_result", gap="small"):
+                _render_current_result(session)
 
 
 def _render_draft_panel(session: PipelineSession) -> None:

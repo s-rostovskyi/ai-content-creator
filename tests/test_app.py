@@ -660,6 +660,8 @@ def test_revision_renders_revised_response_and_keeps_single_request(monkeypatch)
     at.button(key="revise_button").click().run()
 
     assert calls == {"generate": 1, "revise": 1}
+    assert any("RAG | Revision 2 | Not approved" in item.value for item in at.markdown)
+    assert any(m.label == "RAG context (chars)" and m.value == "104 / 6,000" for m in at.metric)
     session = at.session_state[ui_state.PIPELINE_SESSION_KEY]
     assert session.current_draft.revision_number == 2
     assert len(session.current_draft.channel_copy.split()) == 5
@@ -732,6 +734,7 @@ def test_manual_save_updates_revision_and_clears_review_state(monkeypatch) -> No
     assert len(at.download_button) == 0
     assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Edit"
     assert any("Saved revision: 2" in caption.value for caption in at.caption)
+    assert any("Revision 2 | Not approved" in item.value for item in at.markdown)
     _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
     del at
@@ -2410,6 +2413,7 @@ def test_workspace_view_retains_selection_through_save_and_approval(monkeypatch)
 
     assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Edit"
     assert any("Saved revision: 2" in caption.value for caption in at.caption)
+    assert any("Revision 2 | Not approved" in item.value for item in at.markdown)
     _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).set_value("Review").run()
     assert at.checkbox(key=_approval_confirm_key(revision=2)).value is False
 
@@ -2419,6 +2423,7 @@ def test_workspace_view_retains_selection_through_save_and_approval(monkeypatch)
 
     assert _on_page(at, "Campaign").radio(key=_workspace_view_widget_key()).value == "Review"
     assert len(at.download_button) == 2
+    assert any("Revision 2 | Approved" in item.value for item in at.markdown)
     del at
     gc.collect()
 
@@ -2598,3 +2603,48 @@ def test_preexisting_ui_session_is_bound_to_its_product_before_revision(monkeypa
     assert session.product_id == "nano_puff_84212"
     assert session.current_draft is draft
     assert not at.exception
+
+
+@pytest.mark.parametrize("mode,copy_text", [("rag", "word " * 70 + "#One #Two #Three"), ("rag", "Too short"), ("full_corpus", "Legacy copy")])
+def test_current_result_summarizes_only_saved_evidence_and_advisory_format(monkeypatch, mode, copy_text):
+    import app as studio
+    monkeypatch.setattr(studio.ui_state, "editor_is_dirty", lambda *_: True)
+    draft = SimpleNamespace(channel="instagram", revision_number=3, channel_copy=copy_text,
+                            context_mode=mode, source_manifest=({"repository_relative_path": "knowledge_base/primary/product.md"},),
+                            retrieval_provenance={"included_chunks": [{"chunk_kind": "facts"}, {"chunk_kind": "editorial"}],
+                                "measurements": {"included_source_count": 1, "primary_selected_count": 2,
+                                    "primary_fact_count": 1, "secondary_selected_count": 0, "secondary_fact_count": 0,
+                                    "serialized_context_characters": 2858, "max_serialized_characters": 6000}})
+    session = SimpleNamespace(channel="instagram", current_draft=draft, approval=None)
+    at = AppTest.from_string("import streamlit as st; import app; app._render_current_result(st.session_state['test_session'])")
+    at.session_state["test_session"] = session
+    at.run()
+    assert not at.exception
+    metrics = {m.label: m.value for m in at.metric}
+    assert metrics["Format (advisory)"] == ("Pass" if mode == "rag" and copy_text.startswith("word") else "Needs attention")
+    if mode == "rag":
+        assert metrics["RAG context (chars)"] == "2,858 / 6,000"
+        assert any("2 chunks | 1 factual | 1 editorial" in m.value for m in at.markdown)
+        assert any("knowledge_base/primary/product.md" in m.value for m in at.markdown)
+    else:
+        assert metrics["Retrieved evidence"] == "Not recorded"
+        assert not any("2 chunks" in m.value for m in at.markdown)
+    assert any("saved revision 3" in w.value for w in at.warning)
+
+
+def test_recorded_index_build_is_historical_and_flags_another_snapshot(monkeypatch, tmp_path):
+    import app as studio
+    import json
+    evidence = tmp_path / "docs/evidence/rag/two-product-index-build.json"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text(json.dumps({"chunk_count": 23, "reused_embedding_count": 20,
+        "embedded_chunk_count": 3, "corpus_snapshot_id": "older-snapshot"}), encoding="utf-8")
+    monkeypatch.setattr(studio, "REPO_ROOT", tmp_path)
+    plan = SimpleNamespace(corpus_snapshot=SimpleNamespace(snapshot_id="current-snapshot"))
+    at = AppTest.from_string("import streamlit as st; import app; app._render_recorded_index_build(st.session_state['test_plan'])")
+    at.session_state["test_plan"] = plan
+    at.run()
+    assert not at.exception
+    assert {m.label: m.value for m in at.metric} == {"Total chunks": "23", "Reused embeddings": "20", "New embeddings": "3"}
+    assert any("not a new build on Render" in i.value for i in at.info)
+    assert any("different corpus snapshot" in w.value for w in at.warning)
